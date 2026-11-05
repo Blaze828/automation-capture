@@ -37,6 +37,15 @@ async function runApiTests(workspace: string, output: string): Promise<void> {
       assert.equal(result.code, 0); assert.match(terminal.text, /안녕하세요/); assert.match(terminal.text, /실행 완료/);
     }
     console.log('PASS API real Pseudoterminal Unicode output and repeated execution');
+    const timedSource = path.join(workspace, '4장', '타임아웃.js');
+    await fs.writeFile(timedSource, "setTimeout(() => console.log('끝'), 50)");
+    const timedRunner = new RunManager(terminal, {nodePath: config.nodePath, timeoutMs: 10}, async () => '수동 캡처');
+    let manualComplete = false;
+    try {
+      await timedRunner.run(timedSource, async () => { await delay(200); manualComplete = true; });
+      assert.equal(manualComplete, true);
+    } finally { timedRunner.dispose(); }
+    console.log('PASS API manual capture finishes before final capture when process exits during capture');
     files.remember(vscode.window.activeTextEditor);
     await vscode.commands.executeCommand('workbench.action.terminal.focus');
     assert.equal((await files.document(true)).fileName, doc.fileName);

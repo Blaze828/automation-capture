@@ -5,7 +5,7 @@
 ## 자동 검증 완료
 
 - `npm test`: **10개 통과**. 한글/공백 경로와 상대 모듈, 구문/런타임 오류, 표준 입력, 동시 실행 거부, 제한 시간 연장과 무한 루프 중단, Node 미설치, 한글 ZIP의 Python zipfile CRC 검사, 기존 ZIP 교체 및 파일 보존, 버전 이름, 유효하지 않은 창의 PNG 저장 거부, 출력 페이지 분할.
-- 실제 VS Code Extension Host의 API 통합 테스트 **7개 그룹 통과**: 수정된 JS 자동 저장·복사, 덮어쓰기/새 버전/취소, 한글 Pseudoterminal 출력과 반복 실행, 터미널 포커스의 JS 기억, JS가 아닌 편집기 거부, Node REPL 실행·재사용 및 캡처 실패 후 세션 유지, 긴 코드 스크롤/출력 페이지/위치 복원.
+- 실제 VS Code Extension Host의 API 통합 테스트 **8개 그룹 통과**: 수정된 JS 자동 저장·복사, 덮어쓰기/새 버전/취소, 한글 Pseudoterminal 출력과 반복 실행, 실행 도중 시작된 수동 캡처와 종료 후 캡처의 경합 방지, 터미널 포커스의 JS 기억, JS가 아닌 편집기 거부, Node REPL 실행·재사용 및 캡처 실패 후 세션 유지, 긴 코드 스크롤/출력 페이지/위치 복원.
 - 마지막 분할 테스트는 **캡처 백엔드를 대역으로 교체**하고 VS Code의 실제 편집기/터미널 API를 사용합니다. 이 테스트는 PNG를 만들지 않으며 화면 촬영 성공을 의미하지 않습니다.
 - `python -m py_compile python/capture.py`: 통과.
 - `npm audit`: 보고된 취약점 0개. glob/minimatch의 수정 버전을 overrides로 지정했고 ZIP 생성 및 VSIX 패키징과 함께 확인했습니다.
