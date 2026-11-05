@@ -100,7 +100,7 @@ npm run test:integration
 
 단위 테스트는 한글/공백 경로, 상대 경로 모듈, stdout/stderr, 구문/실행 오류, 입력 대기, 중복 실행, 제한 시간과 중단, Node 미설치를 확인합니다. 통합 테스트는 설치된 VS Code를 별도 프로필로 열고 실제 JS/PNG 저장을 검사합니다. 실행 중 테스트 창을 전면에 유지해야 합니다. 로그와 산출물은 `.test-artifacts/`에 있습니다. 다른 설치 위치는 `VSCODE_EXECUTABLE`, Python 경로는 `AUTOCAPTURE_PYTHON` 환경 변수로 지정할 수 있습니다.
 
-화면을 전면에 둘 수 없는 환경에서는 `AUTOCAPTURE_API_ONLY=1`로 VS Code API 통합 테스트만 실행할 수 있습니다. 이 모드는 실제 PNG 촬영을 검증하지 않습니다. 이번 개발 환경에서는 다른 전체 화면 프로그램이 전면을 유지해 실제 PNG 촬영 성공 경로는 아직 미검증입니다.
+화면을 전면에 둘 수 없는 환경에서는 `AUTOCAPTURE_API_ONLY=1`로 VS Code API 통합 테스트만 실행할 수 있습니다. 이 모드는 실제 PNG 촬영을 검증하지 않습니다. 2026-11-06에는 `sum.js`의 `1 + 2` 계산을 실제 VS Code 하단 터미널에서 실행하고 결과 `3`과 코드를 함께 Capture Again으로 저장한 PNG를 직접 열어 확인했습니다. 컴퓨터 제어 도구의 투명 커서 표시창을 실제 가림 창으로 오인하던 문제도 수정했습니다.
 
 개발은 기본 실행·캡처(1~5단계)와 REPL·ZIP·분할(6~9단계)을 커밋으로 구분했습니다. 검증 상태와 수동 점검표는 [TESTING.md](TESTING.md)에 기록합니다. GitHub Actions는 Windows에서 단위 테스트와 VSIX 패키징을 수행하고 설치 파일을 빌드 산출물로 제공합니다.
 

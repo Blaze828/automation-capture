@@ -7,6 +7,13 @@ import os
 import sys
 
 
+def is_cursor_overlay(class_name, extended_style):
+    # Computer Use's click-through cursor indicator covers the desktop with an
+    # otherwise transparent surface. It is decoration, not an obstructing app.
+    required = 0x00080000 | 0x00000020 | 0x08000000  # LAYERED | TRANSPARENT | NOACTIVATE
+    return class_name == "CodexComputerUseCursorOverlay" and extended_style & required == required
+
+
 def main():
     if sys.platform != "win32":
         raise RuntimeError("Windows 10/11 전용 캡처입니다.")
@@ -35,6 +42,8 @@ def main():
     user32.GetWindowRect.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.RECT)]
     user32.GetWindowTextLengthW.argtypes = [wintypes.HWND]
     user32.GetWindowTextW.argtypes = [wintypes.HWND, wintypes.LPWSTR, ctypes.c_int]
+    user32.GetClassNameW.argtypes = [wintypes.HWND, wintypes.LPWSTR, ctypes.c_int]
+    user32.GetWindowLongW.argtypes = [wintypes.HWND, ctypes.c_int]
     kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
     kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
     kernel32.OpenProcess.restype = wintypes.HANDLE
@@ -99,6 +108,11 @@ def main():
                 return False
             try:
                 if user32.IsWindowVisible(other) and not user32.IsIconic(other):
+                    class_name = ctypes.create_unicode_buffer(256)
+                    user32.GetClassNameW(other, class_name, 256)
+                    style = user32.GetWindowLongW(other, -20) & 0xffffffff
+                    if is_cursor_overlay(class_name.value, style):
+                        return True
                     cloaked = wintypes.DWORD()
                     dwmapi.DwmGetWindowAttribute(other, 14, ctypes.byref(cloaked), ctypes.sizeof(cloaked))
                     if not cloaked.value:
@@ -113,6 +127,13 @@ def main():
         user32.EnumWindows.argtypes = [callback_type, wintypes.LPARAM]
         user32.EnumWindows(callback, 0)
         if blockers or not found_target[0]:
+            if os.environ.get('AUTOCAPTURE_CAPTURE_DEBUG'):
+                debug = []
+                for blocker in blockers:
+                    class_name = ctypes.create_unicode_buffer(256)
+                    user32.GetClassNameW(blocker, class_name, 256)
+                    debug.append({'hwnd': blocker, 'class': class_name.value, 'bounds': bounds(blocker), 'style': hex(user32.GetWindowLongW(blocker, -20) & 0xffffffff)})
+                print('Capture blockers: ' + json.dumps(debug), file=sys.stderr)
             raise RuntimeError("VS Code 창 위에 다른 창 또는 대화상자가 겹쳐 있습니다. 닫은 뒤 다시 캡처하세요.")
 
     ensure_unobscured()
