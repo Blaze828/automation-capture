@@ -6,6 +6,7 @@ export interface Submission {
   code: string;
   image: string;
   overwrite: boolean;
+  keepCode?: boolean;
 }
 export class Cancelled extends Error {
   constructor() { super('사용자가 취소했습니다.'); }

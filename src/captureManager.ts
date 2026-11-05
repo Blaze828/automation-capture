@@ -22,6 +22,7 @@ export class CaptureManager {
   async bind(document: vscode.TextDocument): Promise<WindowBinding> {
     if (process.platform !== 'win32') { throw new Error('이 확장은 Windows 로컬 VS Code 전용입니다.'); }
     if (!vscode.window.state.focused) { throw new Error('대상 VS Code 창으로 돌아와 캡처를 다시 실행하세요.'); }
+    await delay(200); // Allow a newly revealed editor's native window title to settle.
     const result = await this.python(['--probe', '--title', path.basename(document.fileName)]);
     if (!vscode.window.state.focused) { throw new Error('창 확인 중 포커스가 변경되었습니다. 캡처를 다시 실행하세요.'); }
     return JSON.parse(result) as WindowBinding;

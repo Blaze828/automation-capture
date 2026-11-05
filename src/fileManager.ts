@@ -4,25 +4,14 @@ import * as fs from 'fs/promises';
 import { randomUUID } from 'crypto';
 import { ConfigManager } from './configManager';
 import { Cancelled, CaptureKind, Submission } from './types';
-
-export async function exists(file: string): Promise<boolean> {
-  try { await fs.stat(file); return true; } catch (e) { if ((e as NodeJS.ErrnoException).code === 'ENOENT') { return false; } throw e; }
-}
-export function versioned(file: string, version: number): string {
-  const parsed = path.parse(file);
-  return path.join(parsed.dir, `${parsed.name}_${String(version).padStart(2, '0')}${parsed.ext}`);
-}
-export async function publishFile(temp: string, destination: string, overwrite: boolean): Promise<void> {
-  if (overwrite) { await fs.rename(temp, destination); }
-  else {
-    // Exclusive creation also protects files created while a capture was in progress.
-    await fs.copyFile(temp, destination, fs.constants.COPYFILE_EXCL);
-    await fs.unlink(temp);
-  }
-}
+import { exists, publishFile, versioned } from './storage';
+export { exists, publishFile, versioned } from './storage';
+type ConflictChoice = '덮어쓰기' | '새 버전으로 저장' | '취소' | undefined;
 export class FileManager {
   private lastUri?: vscode.Uri;
-  constructor(private config: ConfigManager) {
+  constructor(private config: ConfigManager, private chooseConflict: () => PromiseLike<ConflictChoice> = () =>
+    vscode.window.showQuickPick(['덮어쓰기', '새 버전으로 저장', '취소'] as Exclude<ConflictChoice, undefined>[],
+      { title: '같은 이름의 제출 파일이 있습니다.', ignoreFocusOut: true }).then(choice => choice as ConflictChoice)) {
     this.remember(vscode.window.activeTextEditor);
   }
   remember(editor: vscode.TextEditor | undefined): void {
@@ -56,10 +45,11 @@ export class FileManager {
     let image = path.join(folder, `${base} ${kind === 'repl' ? 'REPL' : '실행결과'}.png`);
     if (again) { let n = 2; const initial = image; do { image = versioned(initial, n++); } while (await exists(image)); }
     const sameSource = path.resolve(code).toLowerCase() === path.resolve(source).toLowerCase();
+    const unchanged = sameSource || (await exists(code) && (await fs.readFile(code)).equals(await fs.readFile(source)));
     let destinationCode = code;
     let overwrite = false;
-    if ((!sameSource && await exists(code)) || await exists(image)) {
-      const decision = await vscode.window.showQuickPick(['덮어쓰기', '새 버전으로 저장', '취소'], { title: '같은 이름의 제출 파일이 있습니다.', ignoreFocusOut: true });
+    if ((!unchanged && await exists(code)) || await exists(image)) {
+      const decision = await this.chooseConflict();
       if (!decision || decision === '취소') { throw new Cancelled(); }
       overwrite = decision === '덮어쓰기';
       if (!overwrite) {
@@ -68,10 +58,14 @@ export class FileManager {
         destinationCode = versioned(code, n); image = versioned(image, n);
       }
     }
-    return { source, folder, code: destinationCode, image, overwrite };
+    return { source, folder, code: destinationCode, image, overwrite, keepCode: unchanged && destinationCode === code };
   }
   async copyCode(submission: Submission): Promise<void> {
     if (path.resolve(submission.code).toLowerCase() === path.resolve(submission.source).toLowerCase()) { return; }
+    if (submission.keepCode) {
+      if (!(await fs.readFile(submission.code)).equals(await fs.readFile(submission.source))) { throw new Error('제출 JS 또는 원본이 변경되었습니다. 다시 실행하세요.'); }
+      return;
+    }
     const temp = path.join(submission.folder, `.${randomUUID()}.js.tmp`);
     try { await fs.copyFile(submission.source, temp); await publishFile(temp, submission.code, submission.overwrite); }
     finally { await fs.rm(temp, { force: true }); }

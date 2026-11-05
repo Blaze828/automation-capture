@@ -91,22 +91,28 @@ def main():
 
     def ensure_unobscured():
         blockers = []
+        found_target = [False]
         callback_type = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
         def visit(other, _):
             if other == hwnd:
+                found_target[0] = True
                 return False
-            if user32.IsWindowVisible(other) and not user32.IsIconic(other):
-                cloaked = wintypes.DWORD()
-                dwmapi.DwmGetWindowAttribute(other, 14, ctypes.byref(cloaked), ctypes.sizeof(cloaked))
-                if not cloaked.value:
-                    a, b, c, d = bounds(other)
-                    if min(right, c) > max(left, a) and min(bottom, d) > max(top, b):
-                        blockers.append(other)
+            try:
+                if user32.IsWindowVisible(other) and not user32.IsIconic(other):
+                    cloaked = wintypes.DWORD()
+                    dwmapi.DwmGetWindowAttribute(other, 14, ctypes.byref(cloaked), ctypes.sizeof(cloaked))
+                    if not cloaked.value:
+                        a, b, c, d = bounds(other)
+                        if min(right, c) > max(left, a) and min(bottom, d) > max(top, b):
+                            blockers.append(other)
+            except Exception:
+                # ctypes callback exceptions must not silently allow an unsafe capture.
+                blockers.append(other)
             return True
         callback = callback_type(visit)
         user32.EnumWindows.argtypes = [callback_type, wintypes.LPARAM]
         user32.EnumWindows(callback, 0)
-        if blockers:
+        if blockers or not found_target[0]:
             raise RuntimeError("VS Code 창 위에 다른 창 또는 대화상자가 겹쳐 있습니다. 닫은 뒤 다시 캡처하세요.")
 
     ensure_unobscured()
