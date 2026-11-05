@@ -1,0 +1,15 @@
+.git/**
+.vscode/**
+.vscode-test/**
+.test-artifacts/**
+.venv/**
+src/**
+scripts/**
+test/**
+examples/**
+**/__pycache__/**
+**/*.pyc
+out/test/**
+**/*.map
+tsconfig.json
+.github/**

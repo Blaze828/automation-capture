@@ -1,0 +1,124 @@
+{
+  "name": "js-assignment-autocapture",
+  "displayName": "JS Assignment AutoCapture",
+  "description": "Windows에서 JavaScript 과제를 실행하고 실제 VS Code 창을 제출용 PNG로 캡처합니다.",
+  "version": "0.1.0",
+  "publisher": "Blaze828",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Blaze828/automation-capture.git"
+  },
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": [
+    "Education",
+    "Other"
+  ],
+  "extensionKind": [
+    "ui"
+  ],
+  "main": "./out/extension.js",
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false
+    },
+    "virtualWorkspaces": false
+  },
+  "scripts": {
+    "compile": "tsc -p .",
+    "watch": "tsc -watch -p .",
+    "test": "npm run compile && node --test out/test/*.test.js",
+    "test:integration": "npm run compile && node scripts/integration.cjs",
+    "package": "vsce package",
+    "vscode:prepublish": "npm run compile"
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "assignment.runAndCapture",
+        "title": "Assignment: Run and Capture",
+        "icon": "$(device-camera)"
+      },
+      {
+        "command": "assignment.captureAgain",
+        "title": "Assignment: Capture Again"
+      },
+      {
+        "command": "assignment.selectOutputFolder",
+        "title": "Assignment: Select Output Folder"
+      },
+      {
+        "command": "assignment.openOutputFolder",
+        "title": "Assignment: Open Output Folder"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "assignment.runAndCapture",
+        "key": "ctrl+alt+r",
+        "when": "!inDebugRepl && !editorReadonly"
+      },
+      {
+        "command": "assignment.captureAgain",
+        "key": "ctrl+alt+s"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "assignment.runAndCapture",
+          "when": "resourceExtname == .js",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "JS Assignment AutoCapture",
+      "properties": {
+        "assignment.outputFolder": {
+          "type": "string",
+          "default": "",
+          "scope": "window",
+          "description": "제출 폴더의 절대 경로. 명령으로 선택하면 다음 실행에도 유지됩니다."
+        },
+        "assignment.nodePath": {
+          "type": "string",
+          "default": "node",
+          "description": "Node.js 실행 파일 경로. 인수 없이 지정합니다."
+        },
+        "assignment.pythonPath": {
+          "type": "string",
+          "default": "python",
+          "description": "mss와 pygetwindow가 설치된 Python 실행 파일 경로."
+        },
+        "assignment.timeoutSeconds": {
+          "type": "number",
+          "default": 30,
+          "minimum": 1,
+          "maximum": 86400,
+          "description": "실행 제한 시간. 만료 시 계속 실행/중단/수동 캡처를 선택합니다."
+        },
+        "assignment.captureDelayMs": {
+          "type": "number",
+          "default": 800,
+          "minimum": 200,
+          "maximum": 10000,
+          "description": "터미널과 편집기 화면 안정화 대기 시간(ms)."
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "archiver": "^8.0.0"
+  },
+  "devDependencies": {
+    "@types/archiver": "^8.0.0",
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.95.0",
+    "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.2.1",
+    "typescript": "^5.7.2"
+  }
+}
