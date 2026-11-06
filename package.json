@@ -2,7 +2,7 @@
   "name": "js-assignment-autocapture",
   "displayName": "JS Assignment AutoCapture",
   "description": "Windows와 macOS에서 JavaScript 과제를 실행하고 실제 VS Code 창을 제출용 이미지로 캡처합니다.",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "publisher": "Blaze828",
   "license": "MIT",
   "repository": {
@@ -20,6 +20,9 @@
     "ui"
   ],
   "main": "./out/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "capabilities": {
     "untrustedWorkspaces": {
       "supported": false
@@ -71,7 +74,8 @@
       },
       {
         "command": "assignment.selectOutputFolder",
-        "title": "Assignment: Select Output Folder"
+        "title": "Assignment: Select Output Folder",
+        "icon": "$(folder-opened)"
       },
       {
         "command": "assignment.openOutputFolder",
@@ -83,6 +87,11 @@
       }
     ],
     "keybindings": [
+      {
+        "command": "assignment.selectOutputFolder",
+        "key": "ctrl+alt+s",
+        "mac": "ctrl+alt+s"
+      },
       {
         "command": "assignment.startRepl",
         "key": "ctrl+alt+e",

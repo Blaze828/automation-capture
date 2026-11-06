@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { ConfigManager } from './configManager';
 import { FileManager } from './fileManager';
 import { CaptureManager } from './captureManager';
@@ -23,9 +24,28 @@ export function registerCommands(context: vscode.ExtensionContext): void {
   const layout = new CaptureLayout();
   const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
   status.text = '$(device-camera) Assignment'; status.command = 'assignment.runAndCapture'; status.tooltip = 'JavaScript 실행 및 자동 맞춤 캡처 (Ctrl+Alt+Q)'; status.show();
+  const folderStatus = vscode.window.createStatusBarItem('assignment.outputFolder', vscode.StatusBarAlignment.Left, 99);
+  folderStatus.name = 'Assignment 저장 폴더';
+  folderStatus.command = 'assignment.selectOutputFolder';
   let busy = false;
   let latest: Submission | undefined;
-  context.subscriptions.push(terminal, runner, repl, status, vscode.window.onDidChangeActiveTextEditor(editor => files.remember(editor)));
+  const updateFolderStatus = () => {
+    const folder = config.settings.get<string>('outputFolder', '');
+    folderStatus.text = folder ? `$(folder-opened) 저장 폴더: ${path.basename(folder) || folder}` : '$(folder-opened) 저장 폴더 선택';
+    const shortcut = process.platform === 'darwin' ? 'Control+Option+S' : 'Ctrl+Alt+S';
+    folderStatus.tooltip = folder ? `저장 위치: ${folder}\n클릭하여 폴더 변경 (${shortcut})` : `클릭하여 결과를 저장할 폴더 선택 (${shortcut})`;
+    folderStatus.accessibilityInformation = { label: folder ? `저장 폴더 ${folder}. 클릭하여 변경` : '결과를 저장할 폴더 선택' };
+    folderStatus.show();
+  };
+  updateFolderStatus();
+  context.subscriptions.push(terminal, runner, repl, status, folderStatus,
+    vscode.window.onDidChangeActiveTextEditor(editor => files.remember(editor)),
+    vscode.workspace.onDidChangeConfiguration(event => {
+      if (event.affectsConfiguration('assignment.outputFolder')) {
+        latest = undefined;
+        updateFolderStatus();
+      }
+    }));
   const openFolder = async (folder: string) => { await vscode.env.openExternal(vscode.Uri.file(folder)); };
   const notify = (submission: Submission, warning = '') => {
     void vscode.window.showInformationMessage(`저장 완료: ${submission.image}${warning}`, '폴더 열기').then(action => { if (action) { void openFolder(submission.folder); } });

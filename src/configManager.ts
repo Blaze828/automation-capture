@@ -37,8 +37,10 @@ export class ConfigManager {
     return this.selectOutputFolder();
   }
   async selectOutputFolder(): Promise<string> {
+    const current = this.settings.get<string>('outputFolder', '');
     const result = await vscode.window.showOpenDialog({ canSelectFiles: false, canSelectFolders: true,
-      canSelectMany: false, openLabel: '과제 제출 폴더 선택' });
+      canSelectMany: false, title: '실행 결과를 저장할 폴더 선택', openLabel: '이 폴더에 저장',
+      defaultUri: current && path.isAbsolute(current) ? vscode.Uri.file(current) : undefined });
     if (!result?.[0]) { throw new Cancelled(); }
     const target = vscode.workspace.workspaceFolders?.length ? vscode.ConfigurationTarget.Workspace : vscode.ConfigurationTarget.Global;
     await this.settings.update('outputFolder', result[0].fsPath, target);

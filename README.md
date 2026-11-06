@@ -1,6 +1,6 @@
 # JS Assignment AutoCapture
 
-**JavaScript 파일을 실행하고, 결과 사진과 원본 코드를 과제 제출용으로 저장하는 VS Code 확장입니다.** · 버전 0.7.0
+**JavaScript 파일을 실행하고, 결과 사진과 원본 코드를 과제 제출용으로 저장하는 VS Code 확장입니다.** · 버전 0.7.1
 
 Windows와 Mac에서 사용할 수 있습니다. **내 컴퓨터에 맞는 VSIX 파일 하나만 설치하면 됩니다.** Node.js·Python·캡처 도구가 포함되어 별도 설치 명령이나 경로 설정이 필요 없습니다.
 
@@ -10,9 +10,9 @@ Windows와 Mac에서 사용할 수 있습니다. **내 컴퓨터에 맞는 VSIX 
 
 | 컴퓨터 | 설치 파일 | 자세한 안내 |
 |---|---|---|
-| Windows 10/11 · x64 | **[Windows용 다운로드](https://github.com/Blaze828/automation-capture/releases/download/v0.7.0/js-assignment-autocapture-0.7.0-win32-x64.vsix)** | [Windows 안내](README.windows.md) |
-| Mac · Apple M시리즈 | **[M시리즈용 다운로드](https://github.com/Blaze828/automation-capture/releases/download/v0.7.0/js-assignment-autocapture-0.7.0-darwin-arm64.vsix)** | [Mac 안내](README.macos.md) |
-| Mac · Intel | **[Intel용 다운로드](https://github.com/Blaze828/automation-capture/releases/download/v0.7.0/js-assignment-autocapture-0.7.0-darwin-x64.vsix)** | [Mac 안내](README.macos.md) |
+| Windows 10/11 · x64 | **[Windows용 다운로드](https://github.com/Blaze828/automation-capture/releases/download/v0.7.1/js-assignment-autocapture-0.7.1-win32-x64.vsix)** | [Windows 안내](README.windows.md) |
+| Mac · Apple M시리즈 | **[M시리즈용 다운로드](https://github.com/Blaze828/automation-capture/releases/download/v0.7.1/js-assignment-autocapture-0.7.1-darwin-arm64.vsix)** | [Mac 안내](README.macos.md) |
+| Mac · Intel | **[Intel용 다운로드](https://github.com/Blaze828/automation-capture/releases/download/v0.7.1/js-assignment-autocapture-0.7.1-darwin-x64.vsix)** | [Mac 안내](README.macos.md) |
 
 Mac 종류는 **Apple 메뉴 → 이 Mac에 관하여**에서 확인합니다. Rosetta로 Intel 버전 VS Code를 사용한다면 Intel용 확장을 선택하세요.
 
@@ -48,6 +48,15 @@ macOS 13 이상에서 **시스템 설정 → 개인정보 보호 및 보안**으
 
 마우스로 실행하려면 **편집기 오른쪽 위 카메라 아이콘** 또는 아래 상태 표시줄의 **Assignment**를 누릅니다. 명령 팔레트에서 **`Assignment: Run and Capture`**를 검색해도 됩니다.
 
+### 저장 폴더 설정 — 버튼 한 번으로
+
+1. VS Code **맨 아래의 `저장 폴더 선택`** 버튼을 누릅니다.
+2. 원하는 폴더를 고르고 **`이 폴더에 저장`**을 누릅니다.
+
+설정 후에는 버튼이 **`저장 폴더: 제출`**처럼 바뀝니다. 다시 누르면 저장 위치를 변경할 수 있고, 마우스를 올리면 전체 경로가 보입니다. 선택은 같은 과제 폴더에서 기억합니다.
+
+키보드로는 **Windows: Ctrl+Alt+S / Mac: Control+Option+S**로 바로 선택합니다. 처음 실행할 때 고르는 방식도 그대로 사용할 수 있습니다. **0.7.1 이상**으로 업데이트하면 이 버튼이 표시됩니다.
+
 ## 3. 자주 쓰는 단축키
 
 Windows는 **Ctrl+Alt**, Mac은 **Control(⌃)+Option(⌥)**과 아래 글자를 함께 누릅니다. Mac의 Command 키와 구분하세요.
@@ -57,6 +66,7 @@ Windows는 **Ctrl+Alt**, Mac은 **Control(⌃)+Option(⌥)**과 아래 글자를
 | **JS 실행 → 자동 캡처·저장** | **Ctrl+Alt+Q** | **Control+Option+Q** |
 | 현재 화면 한 장 더 저장 | Ctrl+Alt+W | Control+Option+W |
 | 이미지 형식 변경 | Ctrl+Alt+F | Control+Option+F |
+| **저장 폴더 선택·변경** | **Ctrl+Alt+S** | **Control+Option+S** |
 | REPL 시작 | Ctrl+Alt+E | Control+Option+E |
 | REPL 출력만 저장 | Ctrl+Alt+D | Control+Option+D |
 | 실행 중단 | Ctrl+Alt+X | Control+Option+X |
@@ -77,6 +87,7 @@ Windows는 **Ctrl+Alt**, Mac은 **Control(⌃)+Option(⌥)**과 아래 글자를
 | **REPL 출력 캡처** | JS를 한 줄씩 입력하고 결과 확인. 코드 영역을 제외한 REPL 출력 영역만 저장하며 세션 유지 |
 | **이미지 형식 선택** | PNG·JPG·WebP 선택 및 변경 |
 | **기존 파일 처리** | 같은 이름의 결과가 있으면 덮어쓰기·새 버전 저장·취소 선택 |
+| **저장 폴더 바로 선택** | 아래 저장 폴더 버튼 또는 S 단축키로 선택·변경. 버튼에 현재 폴더 이름 표시 |
 | **장별 ZIP 만들기** | 선택한 장 폴더의 JS와 이미지를 ZIP으로 묶어 저장 |
 
 입력을 기다리는 프로그램은 터미널에 직접 입력합니다. 기본 실행 제한 시간은 **30초**이며, 반복 출력이 감지되지 않은 채 시간이 지나면 **계속 실행·중단·수동 캡처**를 선택할 수 있습니다.
@@ -94,7 +105,9 @@ Windows는 **Ctrl+Alt**, Mac은 **Control(⌃)+Option(⌥)**과 아래 글자를
 
 분할 이미지와 추가 캡처에는 `_02`, `_03`처럼 번호가 붙습니다. REPL 사진은 `test REPL.png`처럼 저장됩니다. JPG·WebP를 선택했다면 해당 확장자로 저장됩니다.
 
-**저장 폴더 변경·열기·ZIP 만들기**는 명령 팔레트에서 실행합니다. Windows는 **Ctrl+Shift+P**, Mac은 **Command+Shift+P**로 엽니다.
+**저장 폴더 변경은 아래 `저장 폴더: …` 버튼을 누르면 됩니다.** 예를 들어 `제출`을 선택하면 장별 폴더는 자동으로 만들어지므로 `6장`을 따로 고를 필요가 없습니다.
+
+결과 폴더 열기·ZIP 만들기는 명령 팔레트에서 실행합니다. Windows는 **Ctrl+Shift+P**, Mac은 **Command+Shift+P**로 엽니다. 저장 폴더 선택도 기존 명령으로 실행할 수 있습니다.
 
 | 할 일 | 검색할 명령 |
 |---|---|
@@ -142,7 +155,7 @@ Windows는 **Ctrl+Alt**, Mac은 **Control+Option**을 글자 키와 함께 누�
 | 다운로드 링크가 안 열림 | [릴리스 페이지](https://github.com/Blaze828/automation-capture/releases/latest)의 **Assets**에서 내 컴퓨터에 맞는 `.vsix` 선택 |
 | 단축키가 동작하지 않음 | `.js` 탭을 선택하고 명령 팔레트에서 `Assignment: Run and Capture` 실행. 바로 가기 키 설정에서 충돌 확인 |
 | 작업 영역이 제한 모드임 | 본인이 신뢰하는 과제 폴더라면 VS Code의 작업 영역 신뢰를 허용한 뒤 실행 |
-| 예전 Python·Pillow 설치 오류가 남음 | **0.7.0 이상**인지 확인하고 다시 로드. 설정에서 `Assignment: Use Bundled Runtime` 켜기 |
+| 예전 Python·Pillow 설치 오류가 남음 | **0.7.1 이상**인지 확인하고 다시 로드. 설정에서 `Assignment: Use Bundled Runtime` 켜기 |
 | Mac에서 권한 오류가 뜸 | 화면 기록·손쉬운 사용 권한 허용 후 VS Code 완전히 종료 → 다시 열기 |
 | 캡처가 취소되거나 JS만 저장됨 | 오류 알림을 확인하고 겹친 창·대화상자를 닫아 VS Code를 전면에 둔 뒤 다시 실행 |
 | 다른 JS를 실행하고 싶음 | 다음 `.js` 파일을 클릭하고 Q 단축키. 같은 자동 실행 터미널을 재사용 |
