@@ -65,6 +65,10 @@ jobs:
         if: runner.os == 'macOS'
         timeout-minutes: 6
         run: npm run test:integration
+      - name: Capture Mac desktop on integration failure
+        if: failure() && runner.os == 'macOS'
+        timeout-minutes: 1
+        run: screencapture -x .test-artifacts/ci-desktop.png
       - name: Build platform-specific VSIX
         run: node scripts/package.cjs ${{ matrix.target }}
       - uses: actions/upload-artifact@v4

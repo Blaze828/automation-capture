@@ -8,7 +8,9 @@ const { createWriteStream } = require('node:fs');
   const artifacts = path.join(root, '.test-artifacts', String(Date.now()));
   const workspace = path.join(artifacts, '한글 공백 과제');
   const output = path.join(artifacts, '과제 제출');
-  const profile = path.join(artifacts, 'profile');
+  // macOS Unix-domain sockets have a short path limit; GitHub's checkout path
+  // plus a nested user-data-dir exceeds it. Keep this isolated profile in /tmp.
+  const profile = process.platform === 'darwin' ? await fs.mkdtemp('/tmp/ac-profile-') : path.join(artifacts, 'profile');
   await fs.mkdir(path.join(workspace, '4장'), { recursive: true });
   await fs.mkdir(path.join(profile, 'User'), { recursive: true });
   await fs.mkdir(path.join(workspace, '.vscode'), { recursive: true });
