@@ -44,13 +44,13 @@ if args.check:
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'runtime'))
 from macos_native import frontmost_pid, select_window, window_list
-from AppKit import (NSApplication, NSApplicationActivationPolicyProhibited, NSPanel,
+from AppKit import (NSApplication, NSApplicationActivationPolicyAccessory, NSPanel,
                     NSWindowStyleMaskBorderless, NSWindowStyleMaskNonactivatingPanel,
                     NSBackingStoreBuffered, NSFloatingWindowLevel, NSColor, NSScreen,
                     NSWindowCollectionBehaviorCanJoinAllSpaces, NSWindowCollectionBehaviorFullScreenAuxiliary)
 
 app = NSApplication.sharedApplication()
-app.setActivationPolicy_(NSApplicationActivationPolicyProhibited)
+app.setActivationPolicy_(NSApplicationActivationPolicyAccessory)
 code_pid = frontmost_pid()
 window = select_window(window_list(), code_pid, 'Mac 창 캡처.js')
 bounds = window['kCGWindowBounds']

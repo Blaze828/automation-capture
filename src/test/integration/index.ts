@@ -355,7 +355,8 @@ async function runScenarios(): Promise<void> {
     await fs.writeFile(source, "console.log('Mac 창 전용 캡처 확인')");
     const doc = await vscode.workspace.openTextDocument(source);
     await vscode.window.showTextDocument(doc, {preview: false});
-    await delay(700);
+    await vscode.commands.executeCommand('workbench.action.toggleFullScreen');
+    await delay(2500);
     const config = new ConfigManager();
     const script = path.resolve(__dirname, '../../../scripts/macos_capture_overlay.py');
     const receipt = path.join(process.env.AUTOCAPTURE_ARTIFACTS || path.dirname(workspace), 'overlay.json');
@@ -379,7 +380,11 @@ async function runScenarios(): Promise<void> {
       const checked = await promisify(execFile)(config.pythonPath, ['-E', '-s', '-X', 'utf8', script, receipt, '--check',
         path.join(output, '4장', 'Mac 창 캡처 실행결과.png'), path.join(output, '4장', 'Mac 창 캡처 REPL.png')], {timeout: 15000});
       console.log(checked.stdout);
-    } finally { overlay.kill(); }
+    } finally {
+      overlay.kill();
+      await vscode.commands.executeCommand('workbench.action.toggleFullScreen');
+      await delay(1200);
+    }
   }
 
   if (process.env.AUTOCAPTURE_FRESH_PHASE) {
@@ -438,7 +443,7 @@ async function runScenarios(): Promise<void> {
     completedAt: new Date().toISOString(), formats: ['png', 'jpg', 'webp'],
     scenarios: ['normal JS', 'runtime error', 'capture again', 'automatic height', 'long output pages',
       'long source with short output', 'repeating output', 'REPL terminal-only',
-      ...(process.platform === 'darwin' && process.env.GITHUB_ACTIONS === 'true' ? ['real foreign overlay excluded from window and REPL capture'] : []),
+      ...(process.platform === 'darwin' && process.env.GITHUB_ACTIONS === 'true' ? ['native fullscreen with real foreign overlay excluded from window and REPL capture'] : []),
       ...(process.env.AUTOCAPTURE_FRESH_PHASE ? ['format picker', 'manual stop', 'manual capture modes', 'ZIP export', 'open output folder'] : [])],
     guiCaptureVerified: true
   }, null, 2));
