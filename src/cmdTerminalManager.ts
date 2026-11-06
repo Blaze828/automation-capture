@@ -8,6 +8,7 @@ import { CaptureTerminal } from './captureTerminal';
 import { delay } from './types';
 import { paginateOutput } from './pagination';
 import { representativeOutput } from './outputAnalysis';
+import { nativePlatform } from './platform';
 
 export interface CmdState {
   nonce: string; ready: boolean; done: boolean; stopped: boolean; code: number | null;
@@ -31,7 +32,7 @@ export class CmdTerminalManager implements CaptureTerminal, vscode.Disposable {
   private queue: Promise<unknown> = Promise.resolve();
   private folders = new Set<string>();
   dimensions: vscode.TerminalDimensions = { columns: 100, rows: 20 };
-  constructor(private extensionPath: string, private pythonPath: () => string = () => 'python') {}
+  constructor(private extensionPath: string, private pythonPath: () => string = () => nativePlatform().python) {}
   get exists(): boolean { return !!this.terminal && vscode.window.terminals.includes(this.terminal); }
   get text(): string { return this.retained; }
   get captureText(): string { return this.override ?? this.retained; }
@@ -41,7 +42,7 @@ export class CmdTerminalManager implements CaptureTerminal, vscode.Disposable {
     return paginateOutput(this.captureText, Math.max(8, this.dimensions.columns), 1_000_000).join('\n').split('\n').length;
   }
   show(): void {
-    if (!this.exists) { throw new Error('CMD 터미널이 닫혔습니다. JavaScript를 다시 실행하세요.'); }
+    if (!this.exists) { throw new Error('자동 실행 터미널이 닫혔습니다. JavaScript를 다시 실행하세요.'); }
     this.terminal!.show(true);
   }
   async refresh(): Promise<CmdState | undefined> {
@@ -64,24 +65,25 @@ export class CmdTerminalManager implements CaptureTerminal, vscode.Disposable {
   }
   private async checkIdle(): Promise<void> {
     const pid = await this.terminal!.processId;
-    if (!pid) { throw new Error('자동 실행용 CMD 프로세스를 확인하지 못했습니다. 해당 CMD를 닫고 다시 실행하세요.'); }
+    if (!pid) { throw new Error('자동 실행용 터미널 프로세스를 확인하지 못했습니다. 해당 터미널를 닫고 다시 실행하세요.'); }
     // finishCapture's acknowledgement precedes the host exiting by a few milliseconds.
     const deadline = Date.now() + 2000;
     for (;;) {
       const state = await new Promise<{cmd: boolean; children: number[]}>((resolve, reject) => {
         execFile(this.pythonPath(), [path.join(this.extensionPath, 'runtime', 'cmd-idle.py'), String(pid)],
           {windowsHide: true, timeout: 5000, encoding: 'utf8'}, (error, stdout) => {
-            if (error) { reject(new Error(`CMD 상태 확인 실패: ${error.message}`)); return; }
+            if (error) { reject(new Error(`터미널 상태 확인 실패: ${error.message}`)); return; }
             try { resolve(JSON.parse(stdout)); } catch (failure) { reject(failure); }
           });
       });
-      if (!state.cmd) { throw new Error('자동 실행용 CMD가 종료되었습니다. 해당 터미널을 닫고 다시 실행하세요.'); }
+      if (!state.cmd) { throw new Error('자동 실행용 터미널가 종료되었습니다. 해당 터미널을 닫고 다시 실행하세요.'); }
       if (!state.children.length) { return; }
       if (state.children.every(child => child === this.state?.hostPid) && Date.now() < deadline) { await delay(40); continue; }
-      throw new Error('자동 실행용 CMD에서 다른 프로그램이 실행 중입니다. 그 프로그램을 끝낸 뒤 다시 실행하세요.');
+      throw new Error('자동 실행용 터미널에서 다른 프로그램이 실행 중입니다. 그 프로그램을 끝낸 뒤 다시 실행하세요.');
     }
   }
   private async open(replay: boolean): Promise<void> {
+    const platform = nativePlatform();
     const reuse = this.exists;
     if (reuse) { await this.checkIdle(); }
     if (this.poller) { clearInterval(this.poller); }
@@ -94,26 +96,29 @@ export class CmdTerminalManager implements CaptureTerminal, vscode.Disposable {
     await fs.writeFile(request, JSON.stringify({ folder: this.folder, nonce: this.nonce,
       source: this.source, nodePath: this.nodePath, replay, text: replay ? this.captureText : undefined }));
     await fs.writeFile(path.join(this.folder, 'cwd.txt'), path.dirname(this.source), 'utf8');
+    // A NUL-delimited path also supports quotes, dollars and newlines on macOS.
+    await fs.writeFile(path.join(this.folder, 'cwd.bin'), path.dirname(this.source) + '\0', 'utf8');
     if (reuse) {
       this.show();
       await vscode.commands.executeCommand('workbench.action.terminal.focus');
       await vscode.commands.executeCommand('workbench.action.terminal.clear');
       // Fixed command: paths and source arguments are read from JSON, never interpolated into CMD input.
-      this.terminal!.sendText('@"%AUTOCAPTURE_BOOTSTRAP%"', true);
+      this.terminal!.sendText(platform.startCommand, true);
     } else {
       // Reuse only this owned shell; do not select a user's unrelated terminal by its name.
-      this.terminal = vscode.window.createTerminal({ name: 'cmd', cwd: path.dirname(this.source),
-        shellPath: process.env.ComSpec || 'C:\\Windows\\System32\\cmd.exe',
-        shellArgs: '/d /q /v:off /k ""%AUTOCAPTURE_BOOTSTRAP%""',
+      this.terminal = vscode.window.createTerminal({ name: platform.shellName, cwd: path.dirname(this.source),
+        shellPath: process.platform === 'win32' ? process.env.ComSpec || 'C:\\Windows\\System32\\cmd.exe' : '/bin/zsh',
+        shellArgs: process.platform === 'win32' ? '/d /q /v:off /k ""%AUTOCAPTURE_BOOTSTRAP%""' : ['-f', '-i'],
         env: { AUTOCAPTURE_NODE: this.nodePath, AUTOCAPTURE_REQUEST: request, AUTOCAPTURE_FOLDER: this.folder,
-          AUTOCAPTURE_BOOTSTRAP: path.join(this.extensionPath, 'runtime', 'cmd-bootstrap.cmd'),
+          AUTOCAPTURE_BOOTSTRAP: path.join(this.extensionPath, 'runtime', platform.bootstrap),
           AUTOCAPTURE_HELPER: path.join(this.extensionPath, 'runtime', 'cmd-host.cjs') },
         location: vscode.TerminalLocation.Panel });
+      if (process.platform === 'darwin') { this.terminal.sendText(platform.startCommand, true); }
     }
     this.show();
     const deadline = Date.now() + 15000;
     while (Date.now() < deadline) {
-      if (!this.exists) { throw new Error('실행 준비 중 CMD 터미널이 닫혔습니다.'); }
+      if (!this.exists) { throw new Error('실행 준비 중 자동 실행 터미널이 닫혔습니다.'); }
       if ((await this.refresh())?.ready) {
         this.poller = setInterval(() => { void this.refresh().catch(() => {}); }, 80);
         return;
@@ -121,7 +126,7 @@ export class CmdTerminalManager implements CaptureTerminal, vscode.Disposable {
       await delay(80);
     }
     this.terminal!.dispose(); this.activeHost = false;
-    throw new Error('CMD 실행을 시작하지 못했습니다. Node.js 경로와 터미널 설정을 확인하세요.');
+    throw new Error('터미널 실행을 시작하지 못했습니다. Node.js 경로와 터미널 설정을 확인하세요.');
   }
   async start(source: string, nodePath: string): Promise<void> {
     this.source = source; this.nodePath = nodePath; this.retained = ''; this.override = undefined; this.representative = false;
@@ -145,11 +150,11 @@ export class CmdTerminalManager implements CaptureTerminal, vscode.Disposable {
       }
       const deadline = Date.now() + 5000;
       while (Date.now() < deadline) {
-        if (!this.exists) { throw new Error('캡처 중 CMD 터미널이 닫혔습니다.'); }
+        if (!this.exists) { throw new Error('캡처 중 자동 실행 터미널이 닫혔습니다.'); }
         if (((await this.refresh())?.ack ?? -1) >= seq) { return; }
         await delay(40);
       }
-      throw new Error('CMD 터미널 응답 시간이 초과되었습니다.');
+      throw new Error('자동 실행 터미널 응답 시간이 초과되었습니다.');
     });
     this.queue = action.catch(() => {});
     return action;

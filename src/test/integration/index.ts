@@ -135,7 +135,7 @@ async function runCmdApiTests(workspace: string, extensionPath: string): Promise
     const result = await runner.run(source, async () => {});
     assert.equal(result.code, 0); assert.match(terminal.text, /안녕하세요/);
     assert.doesNotMatch(terminal.text, /\[실행 완료|종료 코드:/);
-    assert.equal(vscode.window.activeTerminal?.name, 'cmd');
+    assert.equal(vscode.window.activeTerminal?.name, process.platform === 'darwin' ? 'zsh' : 'cmd');
     const layout = new CaptureLayout();
     assert.equal((await layout.fit(doc, terminal)).output, true);
     const rows = terminal.dimensions.rows;
@@ -159,7 +159,7 @@ async function runCmdApiTests(workspace: string, extensionPath: string): Promise
     assert.equal(vscode.window.activeTerminal, firstCmd);
     assert.equal(await vscode.window.activeTerminal?.processId, cmdPid);
     assert.match(terminal.text, /ONLY_SECOND/); assert.doesNotMatch(terminal.text, /안녕하세요/);
-    assert.ok(terminal.text.startsWith(path.dirname(secondSource) + '>'));
+    assert.ok(terminal.text.startsWith(path.dirname(secondSource) + (process.platform === 'darwin' ? ' $ ' : '>')));
     await terminal.finishCapture();
     await terminal.ensureReplay();
     assert.equal(vscode.window.activeTerminal, firstCmd, 'manual replay also reuses the same CMD');

@@ -7,10 +7,11 @@ import { ConfigManager } from './configManager';
 import { publishFile } from './fileManager';
 import { delay, WindowBinding } from './types';
 import { hasImageSignature, isImageFormat } from './imageFormat';
+import { nativePlatform } from './platform';
 
 export class CaptureManager {
   constructor(private context: vscode.ExtensionContext, private config: ConfigManager) {}
-  private python(args: string[], script = 'python/capture.py'): Promise<string> {
+  private python(args: string[], script = nativePlatform().capture): Promise<string> {
     return new Promise((resolve, reject) => {
       execFile(this.config.pythonPath, [path.join(this.context.extensionPath, script), ...args],
         { windowsHide: true, timeout: 20000, encoding: 'utf8', env: { ...process.env, PYTHONIOENCODING: 'utf-8' } },
@@ -21,7 +22,7 @@ export class CaptureManager {
     });
   }
   async bind(document: vscode.TextDocument): Promise<WindowBinding> {
-    if (process.platform !== 'win32') { throw new Error('이 확장은 Windows 로컬 VS Code 전용입니다.'); }
+    nativePlatform();
     if (!vscode.window.state.focused) { throw new Error('대상 VS Code 창으로 돌아와 캡처를 다시 실행하세요.'); }
     await delay(200); // Allow a newly revealed editor's native window title to settle.
     const result = await this.python(['--probe', '--title', path.basename(document.fileName)]);
@@ -30,7 +31,7 @@ export class CaptureManager {
   }
   async growTerminal(binding: WindowBinding, outputRows: number, currentRows: number): Promise<void> {
     await this.python(['--hwnd', String(binding.hwnd), '--pid', String(binding.pid),
-      '--output-rows', String(outputRows), '--current-rows', String(currentRows)], 'runtime/terminal_layout.py');
+      '--output-rows', String(outputRows), '--current-rows', String(currentRows)], nativePlatform().layout);
   }
   async capture(binding: WindowBinding, image: string, overwrite: boolean, terminalOnly = false): Promise<void> {
     await vscode.commands.executeCommand('notifications.hideToasts');

@@ -26,7 +26,7 @@ const { createWriteStream } = require('node:fs');
     'terminal.integrated.enablePersistentSessions': false,
     'assignment.outputFolder': output,
     'assignment.nodePath': process.execPath,
-    'assignment.pythonPath': process.env.AUTOCAPTURE_PYTHON || 'python',
+    'assignment.pythonPath': process.env.AUTOCAPTURE_PYTHON || (process.platform === 'darwin' ? 'python3' : 'python'),
     'assignment.captureDelayMs': 1200,
     'assignment.imageFormat': 'png'
   };
@@ -35,7 +35,7 @@ const { createWriteStream } = require('node:fs');
   // Spawn the executable directly: the stock test-electron Windows shell launcher
   // splits unquoted Korean/space-containing paths on some Node versions.
   const log = createWriteStream(path.join(artifacts, 'host.log'));
-  const child = spawn(process.env.VSCODE_EXECUTABLE || path.join(process.env.LOCALAPPDATA, 'Programs', 'Microsoft VS Code', 'Code.exe'),
+  const child = spawn(process.env.VSCODE_EXECUTABLE || (process.platform === 'darwin' ? '/Applications/Visual Studio Code.app/Contents/MacOS/Electron' : path.join(process.env.LOCALAPPDATA, 'Programs', 'Microsoft VS Code', 'Code.exe')),
     [workspace, '--user-data-dir', profile, '--extensions-dir', path.join(artifacts, 'extensions'), '--disable-extensions', '--skip-welcome', '--skip-release-notes', '--new-window',
       `--extensionDevelopmentPath=${root}`, `--extensionTestsPath=${path.join(root, 'out', 'test', 'integration', 'index.js')}`],
     { shell: false, env: { ...process.env, AUTOCAPTURE_WORKSPACE: workspace, AUTOCAPTURE_OUTPUT: output } });

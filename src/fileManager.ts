@@ -6,6 +6,8 @@ import { ConfigManager } from './configManager';
 import { Cancelled, CaptureKind, Submission } from './types';
 import { exists, publishFile, versioned } from './storage';
 export { exists, publishFile, versioned } from './storage';
+const samePath = (a: string, b: string): boolean => process.platform === 'win32'
+  ? path.resolve(a).toLowerCase() === path.resolve(b).toLowerCase() : path.resolve(a) === path.resolve(b);
 type ConflictChoice = '덮어쓰기' | '새 버전으로 저장' | '취소' | undefined;
 export class FileManager {
   private lastUri?: vscode.Uri;
@@ -29,7 +31,7 @@ export class FileManager {
       document = vscode.window.activeTextEditor?.document ?? document;
       if (saved === false || document.isUntitled) { throw new Cancelled(); }
     }
-    if (document.uri.scheme !== 'file' || !/\.js$/i.test(document.fileName)) { throw new Error('Windows 로컬 .js 파일로 저장해야 합니다.'); }
+    if (document.uri.scheme !== 'file' || !/\.js$/i.test(document.fileName)) { throw new Error('로컬 .js 파일로 저장해야 합니다.'); }
     if (document.isDirty && !await document.save()) { throw new Error('원본 JavaScript 파일을 저장하지 못했습니다.'); }
     this.lastUri = document.uri;
     return document;
@@ -44,7 +46,7 @@ export class FileManager {
     const code = path.join(folder, `${base}.js`);
     let image = path.join(folder, `${base} ${kind === 'repl' ? 'REPL' : '실행결과'}.${await this.config.imageFormat()}`);
     if (again) { let n = 2; const initial = image; do { image = versioned(initial, n++); } while (await exists(image)); }
-    const sameSource = path.resolve(code).toLowerCase() === path.resolve(source).toLowerCase();
+    const sameSource = samePath(code, source);
     const unchanged = sameSource || (await exists(code) && (await fs.readFile(code)).equals(await fs.readFile(source)));
     let destinationCode = code;
     let overwrite = false;
@@ -61,7 +63,7 @@ export class FileManager {
     return { source, folder, code: destinationCode, image, overwrite, keepCode: unchanged && destinationCode === code };
   }
   async copyCode(submission: Submission): Promise<void> {
-    if (path.resolve(submission.code).toLowerCase() === path.resolve(submission.source).toLowerCase()) { return; }
+    if (samePath(submission.code, submission.source)) { return; }
     if (submission.keepCode) {
       if (!(await fs.readFile(submission.code)).equals(await fs.readFile(submission.source))) { throw new Error('제출 JS 또는 원본이 변경되었습니다. 다시 실행하세요.'); }
       return;

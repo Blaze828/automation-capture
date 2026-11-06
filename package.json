@@ -1,8 +1,8 @@
 {
   "name": "js-assignment-autocapture",
   "displayName": "JS Assignment AutoCapture",
-  "description": "Windows에서 JavaScript 과제를 실행하고 실제 VS Code 창을 제출용 PNG로 캡처합니다.",
-  "version": "0.5.0",
+  "description": "Windows와 macOS에서 JavaScript 과제를 실행하고 실제 VS Code 창을 제출용 이미지로 캡처합니다.",
+  "version": "0.6.0",
   "publisher": "Blaze828",
   "license": "MIT",
   "repository": {
@@ -32,7 +32,10 @@
     "test": "npm run compile && node --test out/test/*.test.js",
     "test:integration": "npm run compile && node scripts/integration.cjs",
     "package": "vsce package",
-    "vscode:prepublish": "npm run compile"
+    "vscode:prepublish": "npm run compile",
+    "package:windows": "node scripts/package.cjs windows",
+    "package:mac": "node scripts/package.cjs mac",
+    "package:all": "node scripts/package.cjs all"
   },
   "contributes": {
     "commands": [
@@ -81,32 +84,39 @@
     "keybindings": [
       {
         "command": "assignment.startRepl",
-        "key": "ctrl+alt+e"
+        "key": "ctrl+alt+e",
+        "mac": "ctrl+alt+e"
       },
       {
         "command": "assignment.captureRepl",
-        "key": "ctrl+alt+d"
+        "key": "ctrl+alt+d",
+        "mac": "ctrl+alt+d"
       },
       {
         "command": "assignment.runAndCapture",
         "key": "ctrl+alt+q",
-        "when": "!inDebugRepl && !editorReadonly"
+        "when": "!inDebugRepl && !editorReadonly",
+        "mac": "ctrl+alt+q"
       },
       {
         "command": "assignment.captureAgain",
-        "key": "ctrl+alt+w"
+        "key": "ctrl+alt+w",
+        "mac": "ctrl+alt+w"
       },
       {
         "command": "assignment.stopRun",
-        "key": "ctrl+alt+x"
+        "key": "ctrl+alt+x",
+        "mac": "ctrl+alt+x"
       },
       {
         "command": "assignment.captureMultiple",
-        "key": "ctrl+alt+a"
+        "key": "ctrl+alt+a",
+        "mac": "ctrl+alt+a"
       },
       {
         "command": "assignment.selectImageFormat",
-        "key": "ctrl+alt+f"
+        "key": "ctrl+alt+f",
+        "mac": "ctrl+alt+f"
       }
     ],
     "menus": {
@@ -134,8 +144,8 @@
         },
         "assignment.pythonPath": {
           "type": "string",
-          "default": "python",
-          "description": "mss와 pygetwindow가 설치된 Python 실행 파일 경로."
+          "default": "",
+          "description": "캡처 의존성이 설치된 Python 실행 파일 경로. 비워 두면 Windows는 python, macOS는 python3를 사용합니다."
         },
         "assignment.timeoutSeconds": {
           "type": "number",

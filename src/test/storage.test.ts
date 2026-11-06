@@ -19,7 +19,7 @@ test('ZIP includes JS and all capture formats, preserves Korean names and safely
     await fs.mkdir(path.join(chapter, 'not-a-file.js'));
     const zip = path.join(root, '4장.zip');
     assert.equal(await createChapterZip(chapter, zip, false), 4);
-    const inspect = () => JSON.parse(execFileSync(process.env.AUTOCAPTURE_PYTHON || 'python', ['-c',
+    const inspect = () => JSON.parse(execFileSync(process.env.AUTOCAPTURE_PYTHON || (process.platform === 'darwin' ? 'python3' : 'python'), ['-c',
       'import zipfile,json,sys; z=zipfile.ZipFile(sys.argv[1]); assert z.testzip() is None; print(json.dumps({n:z.read(n).hex() for n in z.namelist()}))', zip], { encoding: 'utf8' }));
     const contents = inspect();
     assert.deepEqual(Object.keys(contents).sort(), ['한글 과제.js', '한글 과제 실행결과.png', '결과.jpg', '결과.webp'].sort());
@@ -46,11 +46,11 @@ test('exclusive publishing and numbering preserve previous submissions', async (
     assert.equal(path.basename(await nextAvailable(target)), '131 실행결과_03.png');
   } finally { await fs.rm(root, { recursive: true, force: true }); }
 });
-test('a nonexistent window never creates a PNG', { skip: process.platform !== 'win32' }, async () => {
+test('a nonexistent window never creates a PNG', { skip: !['win32', 'darwin'].includes(process.platform) }, async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'autocapture-window-'));
   try {
     const output = path.join(root, 'must-not-exist.png');
-    assert.throws(() => execFileSync(process.env.AUTOCAPTURE_PYTHON || 'python', [path.resolve('python/capture.py'), '--hwnd', '2147483646', '--pid', '1', '--output', output], { stdio: 'pipe' }));
+    assert.throws(() => execFileSync(process.env.AUTOCAPTURE_PYTHON || (process.platform === 'darwin' ? 'python3' : 'python'), [path.resolve(process.platform === 'darwin' ? 'python/capture_macos.py' : 'python/capture.py'), '--hwnd', '2147483646', '--pid', '1', '--output', output], { stdio: 'pipe' }));
     await assert.rejects(fs.stat(output), { code: 'ENOENT' });
   } finally { await fs.rm(root, { recursive: true, force: true }); }
 });

@@ -25,7 +25,8 @@ export class ProcessRunner {
   run(options: RunOptions): Promise<RunResult> {
     if (this.child) { throw new Error('이미 JavaScript를 실행하고 있습니다.'); }
     this.stopped = false;
-    const child = spawn(options.nodePath, [options.source], { cwd: path.dirname(options.source), shell: false, windowsHide: true });
+    const child = spawn(options.nodePath, [options.source], { cwd: path.dirname(options.source), shell: false, windowsHide: true,
+      detached: process.platform !== 'win32' });
     this.child = child;
     child.stdout.setEncoding('utf8');
     child.stderr.setEncoding('utf8');
@@ -67,7 +68,10 @@ export class ProcessRunner {
       const killer = spawn('taskkill', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true, shell: false });
       killer.on('error', () => { child.kill(); });
       killer.on('close', code => { if (code !== 0) { child.kill(); } });
-    } else { child.kill('SIGKILL'); }
+    } else if (child.pid) {
+      try { process.kill(-child.pid, 'SIGKILL'); }
+      catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ESRCH') { child.kill('SIGKILL'); } }
+    }
   }
   dispose(): void { this.stop(); }
 }

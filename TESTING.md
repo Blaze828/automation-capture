@@ -2,6 +2,18 @@
 
 검증일: 2026-11-05~06 (한국 시간). Windows 로컬, Node.js 24, Python 3.13, VS Code 1.144에서 확인했습니다.
 
+## 0.6.0 macOS 호환 구현 (2026-11-06)
+
+- 기존 Windows CMD·Win32 캡처 경로를 유지하면서 macOS용 zsh, 창 캡처, AX 레이아웃 도우미를 추가했습니다. 같은 zsh PID에서 다른 파일을 실행하고 이전 화면·스크롤 기록을 지우는 구조이며, 경로를 명령 문자열에 삽입하지 않습니다. `cwd.bin`은 NUL 구분자를 사용합니다.
+- macOS는 AppKit으로 전면 VS Code 프로세스를 확인하고 Quartz CGWindowID/PID로 창을 고정합니다. 네이티브 `screencapture`로 실제 창을 저장하고 Pillow로 PNG/JPG/WebP를 인코딩합니다. REPL은 AX 터미널 영역을 Retina 픽셀 좌표로 변환해 크롭합니다. 영역 확인에 실패하면 전체 창으로 대체하지 않습니다.
+- AXDOMClassList/AXDOMIdentifier로 활성 터미널과 기존 경계선을 찾습니다. 넘칠 때만 기존의 2~5행 여백 계산으로 한 번 드래그합니다. 영역/경계선을 측정하지 못하면 일반 실행은 레이아웃을 유지하고 분할 캡처로 진행합니다. 권한 부족은 설정 경로를 포함한 오류로 알립니다.
+- macOS 중단은 JS 프로세스 그룹을 종료합니다. 터미널 종료(SIGHUP) 시에도 자식 실행을 중단하도록 처리했습니다. SIGBREAK는 Windows에서만 등록합니다. 셸 재사용 전 macOS `ps`로 zsh 및 실행 중인 자식을 확인합니다.
+- Python 의존성에 OS 마커를 적용했습니다. macOS에 PyGetWindow/comtypes를 설치하지 않으며 Windows에 PyObjC를 설치하지 않습니다. Python 기본 명령은 Windows `python`, macOS `python3`이고, 사용자 지정 경로를 우선합니다. 셸 스크립트의 LF 줄바꿈을 고정했습니다.
+- Windows에서 `npm test` 18개, Python unittest 21개 통과, Mac 프레임워크 실호출 검사 1개는 Windows에서 건너뜀. 새 Python 검사는 전면 창/파일 일치, 닫힌 창과 PID 변경, 겹친 창 거부, Retina 및 음수 좌표 크롭, 영역 밖 크롭 거부, 활성/분할 터미널 선택, REPL 영역 누락 처리를 검증합니다. 추가로 캡처 파이프라인의 PNG/JPG/WebP 저장, Retina REPL 크롭, 캡처 중 창 이동 시 미저장을 합성 입력으로 검사했습니다. 이 결과는 macOS GUI 성공을 의미하지 않습니다.
+- GitHub Actions를 windows-latest/macOS-latest 매트릭스로 구성했습니다. 기존 네이티브 셸 테스트는 macOS에서 실제 `/bin/zsh`를 실행하도록 확장했습니다. 한글·셸 특수문자 경로, 상대 모듈, 입력/오류, 반복 중단, 같은 셸 재사용과 화면 초기화, 유휴 프로세스 검사를 포함합니다. 현재 세션에서는 macOS CI를 실행하거나 성공 결과를 확인하지 않았습니다.
+- Windows API 통합 검사를 별도 프로필로 실행했으나 VS Code 자체의 업데이트 잠금(`Code is currently being updated`)으로 테스트 창을 시작하지 못했습니다. `.test-artifacts/1793940687166/host.log`에 기록했으며 통합 검사 통과로 계산하지 않았습니다. TypeScript 컴파일, Python 구문 검사, 셸 스크립트 구문 검사와 VSIX 패키징은 성공했습니다.
+- **남은 실기기 검증**: Mac의 화면 기록·손쉬운 사용 권한 허용/거부, 실제 VS Code 일반/REPL 캡처, 한 번의 경계선 이동, Retina·다중 모니터, Apple Silicon/Intel 실행. 현재 작업 환경은 Windows이므로 이 항목들은 통과로 기록하지 않습니다. README에 Mac 설치·가상 환경·권한·단축키와 이 한계를 명시했습니다.
+
 ## 0.5.0 사용자 배치 유지 / 넘칠 때 한 번 조절 (2026-11-06)
 
 - 기존 최대화 → 축소 → 재증가 반복과 하단 강제 이동을 제거했습니다. 현재 터미널 행 수에 출력 전체가 들어가면 위치/크기를 조절하지 않습니다. 넘칠 때만 UI Automation으로 실제 터미널 영역과 경계선을 읽고 필요한 최종 좌표로 한 번 이동합니다. 이후 크기를 탐색하거나 다시 조절하지 않고 캡처합니다.

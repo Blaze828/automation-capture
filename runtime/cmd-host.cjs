@@ -1,4 +1,4 @@
-// Runs under the real cmd.exe terminal. Control/status files never appear in its output.
+// Runs under the owned real CMD/zsh terminal. IPC never appears in its output.
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
@@ -53,10 +53,19 @@ function stop() {
     const killer = spawn('taskkill', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true, shell: false });
     killer.on('error', () => child.kill());
     killer.on('close', exit => { if (exit !== 0) { child.kill(); } });
-  } else { child.kill('SIGKILL'); }
+  } else {
+    // The JS process owns a session, so stopping also terminates its descendants.
+    try { process.kill(-child.pid, 'SIGKILL'); }
+    catch (failure) { if (failure.code !== 'ESRCH') { child.kill('SIGKILL'); } }
+  }
 }
 process.on('SIGINT', stop);
-process.on('SIGBREAK', stop);
+if (process.platform === 'win32') { process.on('SIGBREAK', stop); }
+else {
+  for (const event of ['SIGTERM', 'SIGHUP']) {
+    process.on(event, () => { stop(); process.exit(0); });
+  }
+}
 fs.writeFileSync(outputPath, '');
 // Clear visible content AND scrollback, so another file's output cannot reflow into the capture.
 process.stdout.write('\x1b[2J\x1b[3J\x1b[H');
@@ -64,11 +73,13 @@ if (request.replay) {
   output(request.text || '');
 } else {
   const executable = request.nodePath === 'node' ? 'node' : JSON.stringify(request.nodePath);
-  output(`${path.dirname(request.source)}>${executable} ${JSON.stringify(path.basename(request.source))}\n\n`);
+  const prompt = process.platform === 'win32' ? '>' : ' $ ';
+  output(`${path.dirname(request.source)}${prompt}${executable} ${JSON.stringify(path.basename(request.source))}\n\n`);
   const env = { ...process.env };
   for (const key of Object.keys(env)) { if (key.startsWith('AUTOCAPTURE_')) { delete env[key]; } }
   child = spawn(request.nodePath, [request.source], {
     cwd: path.dirname(request.source), env, shell: false, windowsHide: true,
+    detached: process.platform !== 'win32',
     stdio: ['inherit', 'pipe', 'pipe']
   });
   child.stdout.setEncoding('utf8'); child.stderr.setEncoding('utf8');

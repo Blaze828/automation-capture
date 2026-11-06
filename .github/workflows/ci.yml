@@ -1,4 +1,4 @@
-name: Windows validation and VSIX
+name: Windows and Mac validation
 on:
   push:
     branches: [main]
@@ -8,7 +8,22 @@ permissions:
   contents: read
 jobs:
   validate:
-    runs-on: windows-latest
+    name: ${{ matrix.name }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows x64
+            os: windows-latest
+            target: win32-x64
+          - name: Mac Apple Silicon
+            os: macos-15
+            target: darwin-arm64
+          - name: Mac Intel
+            os: macos-15-intel
+            target: darwin-x64
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -20,11 +35,37 @@ jobs:
           python-version: '3.13'
       - run: npm ci
       - run: python -m pip install -r python/requirements.txt
-      - run: python -m py_compile python/capture.py
-      - run: python -m unittest discover -s test -p 'test_*.py'
-      - run: npm test
-      - run: npm run package
+      - run: python -m compileall -q python runtime
+      - name: Python tests including native Mac framework bindings
+        run: python -m unittest discover -s test -p 'test_*.py' -v
+      - name: Node tests including real CMD or zsh reuse
+        run: npm test
+      - name: Install isolated VS Code on Mac
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          platform=darwin
+          if [ "$(uname -m)" = arm64 ]; then platform=darwin-arm64; fi
+          curl --fail --location --retry 3 "https://update.code.visualstudio.com/latest/$platform/stable" --output "$RUNNER_TEMP/vscode.zip"
+          ditto -x -k "$RUNNER_TEMP/vscode.zip" "$RUNNER_TEMP/autocapture-vscode"
+          echo "VSCODE_EXECUTABLE=$RUNNER_TEMP/autocapture-vscode/Visual Studio Code.app/Contents/MacOS/Electron" >> "$GITHUB_ENV"
+          echo "AUTOCAPTURE_PYTHON=$(command -v python)" >> "$GITHUB_ENV"
+      - name: Mac VS Code extension and terminal API integration
+        if: runner.os == 'macOS'
+        timeout-minutes: 5
+        env:
+          AUTOCAPTURE_API_ONLY: '1'
+        run: npm run test:integration
+      - name: Record Mac screen recording and accessibility availability
+        if: always() && runner.os == 'macOS'
+        run: python scripts/macos_permissions.py
+      - name: Build platform-specific VSIX
+        run: node scripts/package.cjs ${{ matrix.target }}
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: js-assignment-autocapture-vsix
-          path: '*.vsix'
+          name: autocapture-${{ matrix.target }}
+          path: |
+            dist/*.vsix
+            .test-artifacts/**/host.log
+            .test-artifacts/macos-permissions.json

@@ -15,12 +15,11 @@ def is_cursor_overlay(class_name, extended_style):
 
 
 def save_capture(rgb, size, output, image_format):
+    from PIL import Image
+    image = Image.frombytes("RGB", size, rgb)
     if image_format == "png":
-        import mss.tools
-        mss.tools.to_png(rgb, size, output=output)
+        image.save(output, format="PNG")
     else:
-        from PIL import Image
-        image = Image.frombytes("RGB", size, rgb)
         if image_format == "jpg":
             image.save(output, format="JPEG", quality=95, subsampling=0)
         elif image_format == "webp":

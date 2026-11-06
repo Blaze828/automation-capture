@@ -21,7 +21,7 @@ export class CmdRunManager implements vscode.Disposable {
       await this.terminal.start(source, this.config.nodePath);
       let deadline = Date.now() + this.config.timeoutMs;
       for (;;) {
-        if (!this.terminal.exists) { throw new Error('실행 중 CMD 터미널이 닫혔습니다.'); }
+        if (!this.terminal.exists) { throw new Error('실행 중 자동 실행 터미널이 닫혔습니다.'); }
         const state = await this.terminal.refresh();
         if (state?.done) {
           if (state.error) { throw new Error(`Node.js 실행 실패: ${state.error}`); }

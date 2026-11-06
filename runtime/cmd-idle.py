@@ -2,6 +2,8 @@
 import ctypes
 from ctypes import wintypes
 import json
+import os
+import subprocess
 import sys
 
 
@@ -16,6 +18,8 @@ class ProcessEntry(ctypes.Structure):
 
 
 def inspect_cmd(pid):
+    if sys.platform == 'darwin':
+        return inspect_posix(pid)
     kernel = ctypes.WinDLL("kernel32", use_last_error=True)
     kernel.CreateToolhelp32Snapshot.argtypes = [wintypes.DWORD, wintypes.DWORD]
     kernel.CreateToolhelp32Snapshot.restype = wintypes.HANDLE
@@ -40,6 +44,22 @@ def inspect_cmd(pid):
     finally:
         kernel.CloseHandle(snapshot)
     return {"cmd": found, "children": children}
+
+
+def inspect_posix(pid):
+    result = subprocess.run(['/bin/ps', '-axo', 'pid=,ppid=,comm='],
+                            check=True, capture_output=True, text=True)
+    found, children = False, []
+    for line in result.stdout.splitlines():
+        fields = line.strip().split(None, 2)
+        if len(fields) != 3:
+            continue
+        process_id, parent = int(fields[0]), int(fields[1])
+        if process_id == pid:
+            found = os.path.basename(fields[2]).lstrip('-') == 'zsh'
+        if parent == pid:
+            children.append(process_id)
+    return {'cmd': found, 'children': children}
 
 
 if __name__ == "__main__":
