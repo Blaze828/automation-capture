@@ -78,7 +78,7 @@ Node/Python 경로에는 실행 파일만 넣습니다. 폴더 경로나 인수�
 
 | 증상 | 확인 |
 |---|---|
-| Python 모듈 오류 | 설정한 Python과 패키지를 설치한 가상 환경이 같은지 확인 |
+| Python 모듈 오류 | 0.7.0 이상으로 다시 설치하고 `assignment.useBundledRuntime`을 켜세요. 직접 지정한 환경은 옵션을 껐을 때만 사용합니다 |
 | 파일명 불일치 | 원본 JS 탭 선택. 사용자 지정 `window.title`에 `${activeEditorShort}` 포함 |
 | 창이 가려져 촬영 취소 | 겹친 창·대화상자를 닫고 VS Code를 전면에 배치 |
 | JS만 저장되고 이미지가 없음 | 오류 원인을 해결한 뒤 추가 캡처 단축키 W 사용 |
@@ -90,7 +90,7 @@ Mac에서 터미널 경계선을 확인하지 못하면 일반 실행은 배치�
 
 Windows와 macOS의 신뢰한 로컬 데스크톱 VS Code 작업 폴더를 사용합니다. Linux, VS Code 웹, WSL/SSH/컨테이너, 별도 외부 터미널 창 촬영은 지원하지 않습니다. 출력 보관 한도는 1,000,000자입니다. 전체 화면 TUI와 복잡한 ANSI 커서 제어는 지원 대상이 아닙니다.
 
-[Windows·Mac CI 검증](https://github.com/Blaze828/automation-capture/actions/runs/42194055684)에서 세 환경이 성공했습니다. Mac M시리즈·Intel은 실제 창과 REPL 촬영까지 확인했으며, Windows 0.6.0 GUI 재검사는 로컬 VS Code 업데이트 잠금으로 진행하지 못했습니다. 실제 Retina 장치·혼합 배율/HDR 다중 모니터 등 남은 범위는 [검증 기록](../TESTING.md)을 확인하세요.
+0.7.0 설치 파일의 환경·검사 결과는 [최신 검증 기록](../TESTING.md)을 확인하세요. Mac M시리즈·Intel은 실제 창과 REPL 촬영까지 검사합니다. Windows는 설치 파일의 확장·터미널 API와 실제 CMD 재사용을 검사하며, 0.7.0 Windows GUI 촬영 전체는 별도 재검증 대상입니다. 실제 Retina 장치·혼합 배율/HDR 다중 모니터 등 남은 범위는 [검증 기록](../TESTING.md)을 확인하세요.
 
 <details>
 <summary><b>실제 Mac 검증 화면 보기</b></summary>

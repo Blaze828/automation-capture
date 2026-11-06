@@ -2,6 +2,24 @@
 
 검증일: 2026-11-05~06 (한국 시간). Windows 로컬과 GitHub Actions의 Windows·macOS 러너를 사용했습니다. 아래에 각 버전의 환경과 실제 확인 범위를 구분해 기록합니다.
 
+## 0.7.0 실행 환경을 포함한 설치 파일 (2026-11-06)
+
+[네이티브 검증 실행](https://github.com/Blaze828/automation-capture/actions/runs/42205598441), 코드 커밋 `6bea06b` 기준으로 세 환경이 모두 성공했습니다. 사용자용 VSIX에는 Node.js 22.23.4, Python 3.13.18과 해당 OS의 캡처 패키지가 포함됩니다. 기존 Mac Python 3.9에서 Pillow 12를 설치하지 못하던 문제는 사용자 Python에 의존하지 않는 방식으로 해결했습니다.
+
+| 환경 | 포함된 도구 검사 | 실제 VSIX 통합 검사 | 실제 화면 캡처 |
+|---|---|---|---|
+| Windows x64 / windows-latest | Node 20개, Python 22개 통과·Mac 검사 1개 제외 | 확장·CMD 실행/재사용·REPL·오류 처리 통과 | 0.7.0 전체 GUI 별도 재검증 대상 |
+| Mac Apple Silicon / macos-26 | Node 20개, Python 23개 통과 | 확장·zsh 실행/재사용·REPL·오류 처리 통과 | 정상/오류, PNG/JPG/WebP, 높이 조절, 분할, REPL 영역 검사 |
+| Mac Intel / macos-15-intel | Node 20개, Python 23개 통과 | 확장·zsh 실행/재사용·REPL·오류 처리 통과 | 정상/오류, PNG/JPG/WebP, 높이 조절, 분할, REPL 영역 검사 |
+
+- 실제 배포용 VSIX를 한글·공백·괄호가 있는 경로에 풀어 검사했습니다. 사용자 Node/Python 설정을 존재하지 않는 경로로 바꾸고, PATH에서 개발 도구를 제외하고, PYTHONHOME/PYTHONPATH도 잘못된 경로로 지정했습니다. 포함된 도구만으로 실행·캡처해야 통과합니다.
+- Python은 `-E -s -X utf8`로 실행해 기존 Conda/Python 환경과 사용자 패키지의 간섭을 막고 한글 출력을 유지합니다. Mac에서는 VSIX 추출기가 버린 실행 권한을 확장 시작 시 복구합니다.
+- 짧은 출력 한 장, 18줄 출력의 한 번 높이 조절, 긴 출력 자동 분할, 긴 코드·짧은 출력 한 장, 제한 시간 뒤 반복 출력 대표 한 장, REPL 출력 영역만 저장과 세션 유지를 두 Mac에서 검사합니다. 저장 이미지의 PNG/JPEG/WebP 서명도 확인합니다.
+- 첫 터미널의 제안 크기와 Explorer를 연 뒤 실제 뷰포트 크기를 혼동하던 통합 검사 기준을 수정했습니다. 최초 포커스 후 크기를 기준으로 후속 배치 유지 여부를 검사합니다. 해당 검사 수정은 제품의 크기 조절 정책을 바꾸지 않습니다.
+- CI 산출물에는 대상별 VSIX, 실제 이미지, host.log, 권한 상태, 성공 시 GUI 검증 영수증을 보관합니다. 화면 기록·손쉬운 사용 권한은 Mac 사용자가 직접 허용해야 하며 확장이 대신 부여하지 않습니다.
+
+**남은 범위**: Windows 0.7.0 전체 GUI 촬영, macOS 13/14, 실제 Retina 및 혼합 배율·HDR 다중 모니터. 이 버전은 Windows x64, Mac ARM64/Intel용 설치 파일을 각각 제공합니다. 일반 사용자는 VSIX 설치와 Mac 권한 허용 외에 Python/Node 설치 명령이나 경로 설정이 필요 없습니다.
+
 ## 0.6.0 Windows·Mac 실제 CI 검증 (2026-11-06)
 
 [성공한 검증 실행](https://github.com/Blaze828/automation-capture/actions/runs/42192492596), 코드 커밋 `2175032` 기준입니다. Windows x64, Mac Apple Silicon, Mac Intel 세 작업이 모두 성공했습니다.
