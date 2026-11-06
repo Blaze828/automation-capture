@@ -76,4 +76,4 @@ REPL은 **E로 시작 → JS 입력 → D로 저장** 순서입니다.
 
 </details>
 
-[저장 폴더 변경·ZIP 만들기](README.md#3-자주-쓰는-단축키) · [개발·고급 설정](docs/DEVELOPMENT.md)
+[기능 전체 보기](README.md#4-주요-기능) · [저장 위치·ZIP 만들기](README.md#5-결과는-어디에-저장되나요) · [개발·고급 설정](docs/DEVELOPMENT.md)
