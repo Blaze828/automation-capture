@@ -1,8 +1,8 @@
 # 검증 기록
 
-검증일: 2026-11-05~06 (한국 시간). Windows 로컬과 GitHub Actions의 Windows·macOS 러너를 사용했습니다. 아래에 각 버전의 환경과 실제 확인 범위를 구분해 기록합니다.
+검증일: 2026-11-05~07 (한국 시간). Windows 로컬과 GitHub Actions의 Windows·macOS 러너를 사용했습니다. 아래에 각 버전의 환경과 실제 확인 범위를 구분해 기록합니다.
 
-## 0.7.2 처음 설치부터 기능 전체 재검증 (2026-11-06)
+## 0.7.2 처음 설치부터 기능 전체 재검증 (2026-11-06~07)
 
 [최종 CI 실행](https://github.com/Blaze828/automation-capture/actions/runs/42237469600), 제품 코드 커밋 `a26d86a` 기준으로 Windows x64·Mac Apple Silicon·Mac Intel 작업이 모두 성공했습니다. Windows 화면 검사는 별도의 로컬 프로필에서도 수행했습니다.
 
