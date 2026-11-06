@@ -30,6 +30,10 @@ export class CaptureManager {
     return JSON.parse(result) as WindowBinding;
   }
   async growTerminal(binding: WindowBinding, outputRows: number, currentRows: number): Promise<void> {
+    // Success toasts from the previous file can cover the sash on a small Mac.
+    // Dismiss them before hit-testing and performing the single planned drag.
+    await vscode.commands.executeCommand('notifications.hideToasts');
+    await delay(100);
     await this.python(['--hwnd', String(binding.hwnd), '--pid', String(binding.pid),
       '--output-rows', String(outputRows), '--current-rows', String(currentRows)], nativePlatform().layout);
   }
