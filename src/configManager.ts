@@ -3,11 +3,13 @@ import * as path from 'path';
 import { Cancelled } from './types';
 import { ImageFormat, isImageFormat } from './imageFormat';
 import { nativePlatform } from './platform';
+import { getBundledRuntime } from './bundledRuntime';
 
 export class ConfigManager {
   get settings() { return vscode.workspace.getConfiguration('assignment'); }
-  get nodePath(): string { return this.settings.get('nodePath', 'node'); }
-  get pythonPath(): string { return this.settings.get<string>('pythonPath', '').trim() || nativePlatform().python; }
+  private get bundled() { return this.settings.get('useBundledRuntime', true) ? getBundledRuntime() : undefined; }
+  get nodePath(): string { return this.bundled?.node || this.settings.get('nodePath', 'node'); }
+  get pythonPath(): string { return this.bundled?.python || this.settings.get<string>('pythonPath', '').trim() || nativePlatform().python; }
   get timeoutMs(): number { return this.settings.get('timeoutSeconds', 30) * 1000; }
   get captureDelayMs(): number { return this.settings.get('captureDelayMs', 800); }
   async imageFormat(): Promise<ImageFormat> {

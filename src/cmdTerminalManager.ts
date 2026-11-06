@@ -9,6 +9,7 @@ import { delay } from './types';
 import { paginateOutput } from './pagination';
 import { representativeOutput } from './outputAnalysis';
 import { nativePlatform } from './platform';
+import { terminalNodeEnvironment } from './bundledRuntime';
 
 export interface CmdState {
   nonce: string; ready: boolean; done: boolean; stopped: boolean; code: number | null;
@@ -70,7 +71,7 @@ export class CmdTerminalManager implements CaptureTerminal, vscode.Disposable {
     const deadline = Date.now() + 2000;
     for (;;) {
       const state = await new Promise<{cmd: boolean; children: number[]}>((resolve, reject) => {
-        execFile(this.pythonPath(), [path.join(this.extensionPath, 'runtime', 'cmd-idle.py'), String(pid)],
+        execFile(this.pythonPath(), ['-E', '-s', '-X', 'utf8', path.join(this.extensionPath, 'runtime', 'cmd-idle.py'), String(pid)],
           {windowsHide: true, timeout: 5000, encoding: 'utf8'}, (error, stdout) => {
             if (error) { reject(new Error(`터미널 상태 확인 실패: ${error.message}`)); return; }
             try { resolve(JSON.parse(stdout)); } catch (failure) { reject(failure); }
@@ -109,7 +110,7 @@ export class CmdTerminalManager implements CaptureTerminal, vscode.Disposable {
       this.terminal = vscode.window.createTerminal({ name: platform.shellName, cwd: path.dirname(this.source),
         shellPath: process.platform === 'win32' ? process.env.ComSpec || 'C:\\Windows\\System32\\cmd.exe' : '/bin/zsh',
         shellArgs: process.platform === 'win32' ? '/d /q /v:off /k ""%AUTOCAPTURE_BOOTSTRAP%""' : ['-f', '-i'],
-        env: { AUTOCAPTURE_NODE: this.nodePath, AUTOCAPTURE_REQUEST: request, AUTOCAPTURE_FOLDER: this.folder,
+        env: { ...terminalNodeEnvironment(this.nodePath), AUTOCAPTURE_NODE: this.nodePath, AUTOCAPTURE_REQUEST: request, AUTOCAPTURE_FOLDER: this.folder,
           AUTOCAPTURE_BOOTSTRAP: path.join(this.extensionPath, 'runtime', platform.bootstrap),
           AUTOCAPTURE_HELPER: path.join(this.extensionPath, 'runtime', 'cmd-host.cjs') },
         location: vscode.TerminalLocation.Panel });

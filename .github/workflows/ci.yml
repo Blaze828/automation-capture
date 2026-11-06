@@ -34,14 +34,19 @@ jobs:
         with:
           python-version: '3.13'
       - run: npm ci
-      - run: python -m pip install -r python/requirements.txt
-      - run: python -m compileall -q python runtime
-      - name: Python tests including native Mac framework bindings
-        run: python -m unittest discover -s test -p 'test_*.py' -v
+      - run: python -m pip install uv==0.13.7
+      - name: Build included Python, capture libraries and Node
+        run: python scripts/bundle_runtime.py --target ${{ matrix.target }}
+      - name: Test included Python with broken legacy environment
+        run: python scripts/verify_runtime.py
       - name: Node tests including real CMD or zsh reuse
         run: npm test
+      - name: Build self-contained VSIX
+        run: node scripts/package.cjs ${{ matrix.target }}
+      - name: Extract actual VSIX to Korean and space path
+        run: python scripts/extract_test_vsix.py ${{ matrix.target }}
       - name: Install isolated VS Code on Mac
-        id: vscode
+        id: vscodeMac
         if: runner.os == 'macOS'
         shell: bash
         run: |
@@ -52,39 +57,46 @@ jobs:
           app="$RUNNER_TEMP/autocapture-vscode/Visual Studio Code.app"
           binary=$(/usr/libexec/PlistBuddy -c 'Print CFBundleExecutable' "$app/Contents/Info.plist")
           echo "VSCODE_EXECUTABLE=$app/Contents/MacOS/$binary" >> "$GITHUB_ENV"
-          echo "AUTOCAPTURE_PYTHON=$(command -v python)" >> "$GITHUB_ENV"
-      - name: Mac VS Code extension and terminal API integration
-        if: runner.os == 'macOS'
+      - name: Install isolated VS Code on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP 'vscode.zip'
+          $destination = Join-Path $env:RUNNER_TEMP 'autocapture-vscode'
+          Invoke-WebRequest 'https://update.code.visualstudio.com/latest/win32-x64-archive/stable' -OutFile $archive
+          Expand-Archive -LiteralPath $archive -DestinationPath $destination
+          "VSCODE_EXECUTABLE=$(Join-Path $destination 'Code.exe')" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Packaged extension and terminal API with no user Node or Python
         timeout-minutes: 5
         env:
           AUTOCAPTURE_API_ONLY: '1'
         run: npm run test:integration
       - name: Mac real window, output pagination and REPL capture
-        if: ${{ !cancelled() && runner.os == 'macOS' && steps.vscode.outcome == 'success' }}
+        if: ${{ !cancelled() && runner.os == 'macOS' && steps.vscodeMac.outcome == 'success' }}
         timeout-minutes: 6
         env:
           AUTOCAPTURE_CAPTURE_DEBUG: '1'
           AUTOCAPTURE_LAYOUT_DEBUG: ${{ github.workspace }}/.test-artifacts/macos-layout.json
         shell: bash
         run: |
-          python scripts/macos_ci_dialogs.py &
+          "$AUTOCAPTURE_PYTHON" -E -s -X utf8 scripts/macos_ci_dialogs.py &
           watcher=$!
           trap 'kill "$watcher" 2>/dev/null || true' EXIT
           npm run test:integration
       - name: Record Mac permissions and GUI verification receipt
         if: always() && runner.os == 'macOS'
-        run: python scripts/macos_permissions.py
+        run: '"$AUTOCAPTURE_PYTHON" -E -s -X utf8 scripts/macos_permissions.py'
       - name: Capture Mac desktop on integration failure
         if: failure() && runner.os == 'macOS'
         timeout-minutes: 1
         run: screencapture -x .test-artifacts/ci-desktop.png
-      - name: Build platform-specific VSIX
-        run: node scripts/package.cjs ${{ matrix.target }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: autocapture-${{ matrix.target }}
           include-hidden-files: true
+          compression-level: 0
+          overwrite: true
           path: |
             dist/*.vsix
             .test-artifacts/**/host.log

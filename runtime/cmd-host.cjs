@@ -72,7 +72,7 @@ process.stdout.write('\x1b[2J\x1b[3J\x1b[H');
 if (request.replay) {
   output(request.text || '');
 } else {
-  const executable = request.nodePath === 'node' ? 'node' : JSON.stringify(request.nodePath);
+  const executable = JSON.stringify(path.basename(request.nodePath)).replace(/^"(node(?:\.exe)?)"$/, '$1');
   const prompt = process.platform === 'win32' ? '>' : ' $ ';
   output(`${path.dirname(request.source)}${prompt}${executable} ${JSON.stringify(path.basename(request.source))}\n\n`);
   const env = { ...process.env };

@@ -96,13 +96,18 @@ async function runApiTests(workspace: string, output: string): Promise<void> {
     assert.equal(vscode.window.terminals.filter(t => t.name.startsWith('Assignment REPL')).length, 1);
     const settings = vscode.workspace.getConfiguration('assignment');
     const previous = settings.get('pythonPath');
+    const previousBundled = settings.get('useBundledRuntime');
+    await settings.update('useBundledRuntime', false, vscode.ConfigurationTarget.Global);
     await settings.update('pythonPath', 'nonexistent-autocapture-python', vscode.ConfigurationTarget.Global);
     try {
       const failed = await vscode.commands.executeCommand<{ok: boolean}>('assignment.captureRepl');
       assert.equal(failed?.ok, false);
       await assert.rejects(fs.stat(path.join(output, '4장', '131 REPL.png')), { code: 'ENOENT' });
       assert.equal(repl.exitStatus, undefined); assert.ok(vscode.window.terminals.includes(repl));
-    } finally { await settings.update('pythonPath', previous, vscode.ConfigurationTarget.Global); repl.dispose(); }
+    } finally {
+      await settings.update('pythonPath', previous, vscode.ConfigurationTarget.Global);
+      await settings.update('useBundledRuntime', previousBundled, vscode.ConfigurationTarget.Global); repl.dispose();
+    }
     console.log('PASS API REPL launch/reuse; failed capture preserves session and creates no PNG');
     const longSource = path.join(workspace, '4장', '긴 코드.js');
     await fs.writeFile(longSource, Array.from({length: 160}, (_, i) => `console.log('줄 ${i}');`).join('\n'));
@@ -127,7 +132,7 @@ async function runApiTests(workspace: string, output: string): Promise<void> {
 
 async function runCmdApiTests(workspace: string, extensionPath: string): Promise<void> {
   const config = new ConfigManager();
-  const terminal = new CmdTerminalManager(extensionPath);
+  const terminal = new CmdTerminalManager(extensionPath, () => config.pythonPath);
   const runner = new CmdRunManager(terminal, {nodePath: config.nodePath, timeoutMs: 1000});
   try {
     const source = path.join(workspace, '4장', '131.js');
@@ -181,6 +186,12 @@ async function runScenarios(): Promise<void> {
   const output = process.env.AUTOCAPTURE_OUTPUT!;
   const extension = vscode.extensions.getExtension('Blaze828.js-assignment-autocapture');
   assert.ok(extension, 'extension is registered'); await extension.activate();
+  if (process.env.AUTOCAPTURE_BUNDLED_TEST) {
+    const config = new ConfigManager();
+    assert.ok(config.nodePath.startsWith(path.join(extension.extensionPath, 'runtime', 'bundled')));
+    assert.ok(config.pythonPath.startsWith(path.join(extension.extensionPath, 'runtime', 'bundled')));
+    console.log('PASS packaged runtimes selected with missing user Node/Python and broken PYTHONHOME/PATH');
+  }
   if (process.env.AUTOCAPTURE_API_ONLY === '1') {
     await runApiTests(workspace, output); await runCmdApiTests(workspace, extension.extensionPath); return;
   }
@@ -188,7 +199,7 @@ async function runScenarios(): Promise<void> {
   await delay(2500);
   if (process.platform === 'darwin' && process.env.GITHUB_ACTIONS === 'true' && process.env.AUTOCAPTURE_MAIN_PID_FILE) {
     const pid = (await fs.readFile(process.env.AUTOCAPTURE_MAIN_PID_FILE, 'utf8')).trim();
-    execFileSync(new ConfigManager().pythonPath, [path.join(extension.extensionPath, 'scripts', 'macos_activate_ci.py'), pid], {timeout: 15000});
+    execFileSync(new ConfigManager().pythonPath, ['-E', '-s', '-X', 'utf8', path.resolve(__dirname, '../../../scripts/macos_activate_ci.py'), pid], {timeout: 15000});
     await delay(500);
   }
   for (let i = 0; i < 120 && !vscode.window.state.focused; i++) { await delay(500); }

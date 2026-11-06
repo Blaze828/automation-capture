@@ -13,10 +13,10 @@ export class CaptureManager {
   constructor(private context: vscode.ExtensionContext, private config: ConfigManager) {}
   private python(args: string[], script = nativePlatform().capture): Promise<string> {
     return new Promise((resolve, reject) => {
-      execFile(this.config.pythonPath, [path.join(this.context.extensionPath, script), ...args],
+      execFile(this.config.pythonPath, ['-E', '-s', '-X', 'utf8', path.join(this.context.extensionPath, script), ...args],
         { windowsHide: true, timeout: 20000, encoding: 'utf8', env: { ...process.env, PYTHONIOENCODING: 'utf-8' } },
         (error, stdout, stderr) => {
-          if (error) { reject(new Error(`화면 캡처 실패: ${stderr.trim() || error.message}\nPython 및 python/requirements.txt 설치를 확인하세요.`)); }
+          if (error) { reject(new Error(`화면 캡처 실패: ${stderr.trim() || error.message}`)); }
           else { resolve(stdout); }
         });
     });

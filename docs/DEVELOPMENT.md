@@ -15,40 +15,40 @@
 
 ## 소스에서 빌드하기
 
-Git으로 소스를 받은 뒤 저장소 폴더에서 실행합니다. 캡처용 Python은 [Windows](../README.windows.md) 또는 [Mac](../README.macos.md) 안내로 준비할 수 있습니다.
+아래 내용은 소스를 수정하거나 설치 파일을 만드는 개발자용입니다. 일반 사용자는 [Windows](../README.windows.md) 또는 [Mac](../README.macos.md) 안내에서 VSIX만 설치합니다.
 
 ```sh
 git clone https://github.com/Blaze828/automation-capture.git
 cd automation-capture
 ```
 
-Node.js 22 이상과 Python 3.10 이상을 사용합니다. Python 의존성은 OS 마커에 따라 해당 운영체제에 필요한 패키지만 설치됩니다.
+빌드 머신에는 Node.js 22 이상과 Python 3.10 이상이 필요합니다. `uv`로 재배포 가능한 Python과 캡처 패키지를 준비하고, 공식 Node 배포 파일의 SHA-256을 검증해 VSIX에 포함합니다. 사용자 PC에서는 이 빌드 과정을 실행하지 않습니다.
 
 ```sh
 npm ci
-npm run compile
+python -m pip install uv==0.13.7
+npm run prepare:runtime
 npm test
-npm run package:windows
-npm run package:mac
+npm run package
 ```
 
-`package:windows`는 Windows x64 파일 하나, `package:mac`은 Apple Silicon·Intel 파일 두 개를 `dist/`에 만듭니다. `npm run package:all`은 세 파일을 모두 만듭니다. 현재 컴퓨터와 다른 대상용 VSIX도 패키징할 수 있지만 실행 검증은 해당 운영체제에서 해야 합니다.
+현재 운영체제·아키텍처에 맞는 파일 하나를 `dist/`에 만듭니다. Windows x64, Mac M시리즈, Mac Intel은 각각 일치하는 CI 러너에서 빌드합니다. `package:windows`, `package:mac`, `package:all`도 현재 컴퓨터에 맞는 패키지만 만듭니다.
 
 Python 검사는 설치에 사용한 Python으로 `-m unittest discover -s test -p 'test_*.py'`를 실행합니다. 실제 VS Code 통합 검사는 `npm run test:integration`이며, `AUTOCAPTURE_API_ONLY=1`은 화면 촬영을 제외한 확장·터미널 API 검사입니다.
 
 Windows Python 검사:
 
 ```powershell
-& "$env:USERPROFILE\.assignment-capture\Scripts\python.exe" -m unittest discover -s test -p 'test_*.py'
+& "runtime/bundled/python/python.exe" -E -s -X utf8 -m unittest discover -s test -p 'test_*.py'
 ```
 
 Mac Python 검사:
 
 ```sh
-"$HOME/.assignment-capture/bin/python" -m unittest discover -s test -p 'test_*.py'
+runtime/bundled/python/bin/python3 -E -s -X utf8 -m unittest discover -s test -p 'test_*.py'
 ```
 
-별도 VS Code 창을 여는 통합 검사에서는 `AUTOCAPTURE_PYTHON` 환경 변수에 위 가상 환경의 Python 절대 경로를 지정하세요. VS Code 설치 경로가 다르면 `VSCODE_EXECUTABLE`도 지정합니다.
+CI는 완성된 VSIX를 한글·공백 경로에 풀고, 존재하지 않는 사용자 Node/Python 경로와 잘못된 PYTHONHOME/PYTHONPATH, 최소 PATH 상태에서 확장·터미널·실제 GUI를 검사합니다. VS Code 설치 경로가 다르면 `VSCODE_EXECUTABLE`을 지정합니다.
 
 ## 설정
 
@@ -56,8 +56,9 @@ VS Code 설정에서 `assignment`를 검색합니다.
 
 | 설정 | 기본값·설명 |
 |---|---|
-| `assignment.pythonPath` | 캡처 도구를 설치한 Python 실행 파일의 절대 경로. 비워 두면 Windows `python`, Mac `python3` |
-| `assignment.nodePath` | `node`. 필요하면 Node 실행 파일의 절대 경로 지정 |
+| `assignment.useBundledRuntime` | 기본 `true`. 포함된 Node/Python/캡처 패키지를 사용하므로 별도 설치가 필요 없음 |
+| `assignment.pythonPath` | 고급 설정. 위 옵션을 끈 경우 사용할 Python 실행 파일 경로 |
+| `assignment.nodePath` | 고급 설정. 위 옵션을 끈 경우 사용할 Node 실행 파일 경로 |
 | `assignment.outputFolder` | 제출 루트의 절대 경로. 명령으로 선택 가능 |
 | `assignment.imageFormat` | 첫 캡처 때 PNG/JPG/WebP 선택 |
 | `assignment.timeoutSeconds` | 30초 |

@@ -2,7 +2,7 @@
   "name": "js-assignment-autocapture",
   "displayName": "JS Assignment AutoCapture",
   "description": "Windows와 macOS에서 JavaScript 과제를 실행하고 실제 VS Code 창을 제출용 이미지로 캡처합니다.",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "publisher": "Blaze828",
   "license": "MIT",
   "repository": {
@@ -31,11 +31,12 @@
     "watch": "tsc -watch -p .",
     "test": "npm run compile && node --test out/test/*.test.js",
     "test:integration": "npm run compile && node scripts/integration.cjs",
-    "package": "vsce package",
+    "package": "node scripts/package.cjs",
     "vscode:prepublish": "npm run compile",
     "package:windows": "node scripts/package.cjs windows",
     "package:mac": "node scripts/package.cjs mac",
-    "package:all": "node scripts/package.cjs all"
+    "package:all": "node scripts/package.cjs all",
+    "prepare:runtime": "python scripts/bundle_runtime.py"
   },
   "contributes": {
     "commands": [
@@ -140,12 +141,12 @@
         "assignment.nodePath": {
           "type": "string",
           "default": "node",
-          "description": "Node.js 실행 파일 경로. 인수 없이 지정합니다."
+          "description": "고급 설정: Use Bundled Runtime을 끈 경우 사용할 Node.js 실행 파일 경로."
         },
         "assignment.pythonPath": {
           "type": "string",
           "default": "",
-          "description": "캡처 의존성이 설치된 Python 실행 파일 경로. 비워 두면 Windows는 python, macOS는 python3를 사용합니다."
+          "description": "고급 설정: Use Bundled Runtime을 끈 경우 사용할 Python 실행 파일 경로."
         },
         "assignment.timeoutSeconds": {
           "type": "number",
@@ -178,6 +179,11 @@
             "WebP: 무손실 압축 이미지"
           ],
           "description": "저장 이미지 형식. 빈 값이면 첫 캡처 때 선택합니다. Ctrl+Alt+F로 변경할 수 있습니다."
+        },
+        "assignment.useBundledRuntime": {
+          "type": "boolean",
+          "default": true,
+          "description": "확장에 포함된 Node.js와 Python을 사용합니다. 별도 설치가 필요 없습니다. 끄면 Node Path와 Python Path 설정을 사용합니다."
         }
       }
     }

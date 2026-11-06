@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { ConfigManager } from './configManager';
 import { verifyExecutable } from './processRunner';
+import { terminalNodeEnvironment } from './bundledRuntime';
 
 export class ReplManager implements vscode.Disposable {
   private terminal?: vscode.Terminal;
@@ -14,7 +15,8 @@ export class ReplManager implements vscode.Disposable {
     await verifyExecutable(this.config.nodePath);
     // Start Node directly, without constructing a shell command or generating JS.
     this.terminal = vscode.window.createTerminal({ name: `Assignment REPL · ${path.basename(folder)}`,
-      shellPath: this.config.nodePath, shellArgs: ['--interactive'], cwd: folder, location: vscode.TerminalLocation.Panel });
+      shellPath: this.config.nodePath, shellArgs: ['--interactive'], cwd: folder,
+      env: terminalNodeEnvironment(this.config.nodePath), location: vscode.TerminalLocation.Panel });
     this.folder = folder; this.terminal.show(false);
   }
   show(): void {

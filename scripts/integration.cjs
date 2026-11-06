@@ -29,8 +29,8 @@ const { createWriteStream, writeFileSync } = require('node:fs');
     'telemetry.telemetryLevel': 'off', 'update.mode': 'none',
     'terminal.integrated.enablePersistentSessions': false,
     'assignment.outputFolder': output,
-    'assignment.nodePath': process.execPath,
-    'assignment.pythonPath': process.env.AUTOCAPTURE_PYTHON || (process.platform === 'darwin' ? 'python3' : 'python'),
+    'assignment.nodePath': process.env.AUTOCAPTURE_BUNDLED_TEST ? 'nonexistent-user-node' : process.execPath,
+    'assignment.pythonPath': process.env.AUTOCAPTURE_BUNDLED_TEST ? 'nonexistent-user-python' : process.env.AUTOCAPTURE_PYTHON || (process.platform === 'darwin' ? 'python3' : 'python'),
     'assignment.captureDelayMs': 1200,
     'assignment.imageFormat': 'png'
   };
@@ -49,8 +49,11 @@ const { createWriteStream, writeFileSync } = require('node:fs');
   const mainPidFile = path.join(artifacts, 'main.pid');
   const child = spawn(executable,
     [workspace, '--user-data-dir', profile, '--extensions-dir', path.join(artifacts, 'extensions'), '--disable-extensions', '--skip-welcome', '--skip-release-notes', '--new-window',
-      `--extensionDevelopmentPath=${root}`, `--extensionTestsPath=${path.join(root, 'out', 'test', 'integration', 'index.js')}`],
-    { shell: false, env: { ...process.env, AUTOCAPTURE_WORKSPACE: workspace, AUTOCAPTURE_OUTPUT: output,
+      `--extensionDevelopmentPath=${process.env.AUTOCAPTURE_PACKAGED_ROOT || root}`, `--extensionTestsPath=${path.join(root, 'out', 'test', 'integration', 'index.js')}`],
+    { shell: false, env: { ...process.env, ...(process.env.AUTOCAPTURE_BUNDLED_TEST ? {
+      PYTHONHOME: path.join(artifacts, 'missing-old-python'), PYTHONPATH: path.join(artifacts, 'missing-old-modules'),
+      PATH: process.platform === 'win32' ? path.join(process.env.SystemRoot || 'C:\\Windows', 'System32') : '/usr/bin:/bin:/usr/sbin:/sbin'
+    } : {}), AUTOCAPTURE_WORKSPACE: workspace, AUTOCAPTURE_OUTPUT: output,
       AUTOCAPTURE_MAIN_PID_FILE: mainPidFile } });
   if (child.pid) { writeFileSync(mainPidFile, String(child.pid)); }
   for (const stream of [child.stdout, child.stderr]) {
