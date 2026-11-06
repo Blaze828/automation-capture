@@ -8,7 +8,7 @@ import time
 import ApplicationServices as ax
 import Quartz as q
 import objc
-from AppKit import NSRunningApplication
+from AppKit import NSRunningApplication, NSPasteboard, NSPasteboardTypeString
 
 if os.environ.get('GITHUB_ACTIONS') != 'true':
     raise SystemExit('This helper is restricted to the ephemeral Mac CI desktop.')
@@ -56,18 +56,25 @@ while time.monotonic() < deadline:
 else:
     raise RuntimeError('Output-folder status button was not exposed')
 key(1, q.kCGEventFlagMaskControl | q.kCGEventFlagMaskAlternate)  # Control+Option+S
-time.sleep(0.5)
+deadline = time.monotonic() + 8
+while time.monotonic() < deadline:
+    if any('이 폴더에 저장' in str(attr(n, 'AXTitle') or attr(n, 'AXDescription') or '') for n in nodes()):
+        break
+    time.sleep(0.2)
+else:
+    raise RuntimeError('Native output-folder panel did not finish opening')
 if destination == '--cancel':
     key(53)
     print('PASS native folder dialog cancel', flush=True)
     raise SystemExit(0)
 key(5, q.kCGEventFlagMaskCommand | q.kCGEventFlagMaskShift)  # Go to Folder
-focused = attr(root, 'AXFocusedUIElement')
-if focused is None or attr(focused, 'AXRole') not in ('AXTextField', 'AXComboBox'):
-    raise RuntimeError('Go to Folder text field did not receive focus')
-error = ax.AXUIElementSetAttributeValue(focused, 'AXValue', destination)
-if error:
-    raise RuntimeError('Cannot enter output folder path: ' + str(error))
+time.sleep(0.7)
+# The native panel may host its text field in an AppKit XPC process. Paste the
+# path through its standard keyboard UI instead of reading Code's stale AX focus.
+pasteboard = NSPasteboard.generalPasteboard()
+pasteboard.clearContents()
+pasteboard.setString_forType_(destination, NSPasteboardTypeString)
+key(9, q.kCGEventFlagMaskCommand)
 key(36)
 time.sleep(0.7)
 key(36)
