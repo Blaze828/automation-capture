@@ -2,7 +2,7 @@
 const path = require('node:path');
 const fs = require('node:fs/promises');
 const { spawn, execFileSync } = require('node:child_process');
-const { createWriteStream } = require('node:fs');
+const { createWriteStream, writeFileSync } = require('node:fs');
 (async () => {
   const root = path.resolve(__dirname, '..');
   const artifacts = path.join(root, '.test-artifacts', String(Date.now()));
@@ -46,10 +46,13 @@ const { createWriteStream } = require('node:fs');
     executable = path.join(app, 'Contents', 'MacOS', binary);
   }
   executable ||= path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Microsoft VS Code', 'Code.exe');
+  const mainPidFile = path.join(artifacts, 'main.pid');
   const child = spawn(executable,
     [workspace, '--user-data-dir', profile, '--extensions-dir', path.join(artifacts, 'extensions'), '--disable-extensions', '--skip-welcome', '--skip-release-notes', '--new-window',
       `--extensionDevelopmentPath=${root}`, `--extensionTestsPath=${path.join(root, 'out', 'test', 'integration', 'index.js')}`],
-    { shell: false, env: { ...process.env, AUTOCAPTURE_WORKSPACE: workspace, AUTOCAPTURE_OUTPUT: output } });
+    { shell: false, env: { ...process.env, AUTOCAPTURE_WORKSPACE: workspace, AUTOCAPTURE_OUTPUT: output,
+      AUTOCAPTURE_MAIN_PID_FILE: mainPidFile } });
+  if (child.pid) { writeFileSync(mainPidFile, String(child.pid)); }
   for (const stream of [child.stdout, child.stderr]) {
     stream.on('data', chunk => { log.write(chunk); const text = chunk.toString(); if (/PASS|AssertionError|Error:|ENOENT/.test(text)) { process.stdout.write(text); } });
   }

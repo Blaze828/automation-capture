@@ -186,6 +186,11 @@ async function runScenarios(): Promise<void> {
   }
   await vscode.commands.executeCommand('workbench.action.closeSidebar');
   await delay(2500);
+  if (process.platform === 'darwin' && process.env.GITHUB_ACTIONS === 'true' && process.env.AUTOCAPTURE_MAIN_PID_FILE) {
+    const pid = (await fs.readFile(process.env.AUTOCAPTURE_MAIN_PID_FILE, 'utf8')).trim();
+    execFileSync(new ConfigManager().pythonPath, [path.join(extension.extensionPath, 'scripts', 'macos_activate_ci.py'), pid], {timeout: 15000});
+    await delay(500);
+  }
   for (let i = 0; i < 120 && !vscode.window.state.focused; i++) { await delay(500); }
   for (const name of ['131', '오류 예제']) {
     const doc = await vscode.workspace.openTextDocument(path.join(workspace, '4장', `${name}.js`));
