@@ -1,0 +1,59 @@
+name: Fresh public VSIX installation
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  fresh:
+    name: ${{ matrix.name }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {name: Windows installed extension, os: windows-latest}
+          - {name: Mac Apple Silicon first install, os: macos-26}
+          - {name: Mac Intel first install, os: macos-15-intel}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: 22, cache: npm}
+      - run: npm ci
+      - run: npm run compile
+      - name: Install isolated VS Code on Mac
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          platform=darwin
+          if [ "$(uname -m)" = arm64 ]; then platform=darwin-arm64; fi
+          curl --fail --location --retry 3 "https://update.code.visualstudio.com/latest/$platform/stable" --output "$RUNNER_TEMP/vscode.zip"
+          ditto -x -k "$RUNNER_TEMP/vscode.zip" "$RUNNER_TEMP/fresh-code"
+          app="$RUNNER_TEMP/fresh-code/Visual Studio Code.app"
+          binary=$(/usr/libexec/PlistBuddy -c 'Print CFBundleExecutable' "$app/Contents/Info.plist")
+          echo "VSCODE_EXECUTABLE=$app/Contents/MacOS/$binary" >> "$GITHUB_ENV"
+      - name: Install isolated VS Code on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP 'vscode.zip'
+          $destination = Join-Path $env:RUNNER_TEMP 'fresh-code'
+          Invoke-WebRequest 'https://update.code.visualstudio.com/latest/win32-x64-archive/stable' -OutFile $archive
+          Expand-Archive -LiteralPath $archive -DestinationPath $destination
+          "VSCODE_EXECUTABLE=$(Join-Path $destination 'Code.exe')" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Download public VSIX, install in new profile and exercise real setup
+        timeout-minutes: 13
+        run: node scripts/fresh_install.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fresh-install-${{ runner.os }}-${{ runner.arch }}
+          include-hidden-files: true
+          path: |
+            .test-artifacts/fresh-*/installation.json
+            .test-artifacts/fresh-*/*.log
+            .test-artifacts/fresh-*/first-setup.json
+            .test-artifacts/fresh-*/gui-verification.json
+            .test-artifacts/fresh-*/failure.png
+            .test-artifacts/fresh-*/과제 제출/**/*.png
+            .test-artifacts/fresh-*/과제 제출/*.zip

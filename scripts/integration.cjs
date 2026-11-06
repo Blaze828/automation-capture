@@ -5,16 +5,16 @@ const { spawn, execFileSync } = require('node:child_process');
 const { createWriteStream, writeFileSync } = require('node:fs');
 (async () => {
   const root = path.resolve(__dirname, '..');
-  const artifacts = path.join(root, '.test-artifacts', String(Date.now()));
+  const artifacts = process.env.AUTOCAPTURE_ARTIFACTS || path.join(root, '.test-artifacts', String(Date.now()));
   const workspace = path.join(artifacts, '한글 공백 과제');
   const output = path.join(artifacts, '과제 제출');
   // macOS Unix-domain sockets have a short path limit; GitHub's checkout path
   // plus a nested user-data-dir exceeds it. Keep this isolated profile in /tmp.
-  const profile = process.platform === 'darwin' ? await fs.mkdtemp('/tmp/ac-profile-') : path.join(artifacts, 'profile');
+  const profile = process.env.AUTOCAPTURE_PROFILE || (process.platform === 'darwin' ? await fs.mkdtemp('/tmp/ac-profile-') : path.join(artifacts, 'profile'));
   await fs.mkdir(path.join(workspace, '4장'), { recursive: true });
   await fs.mkdir(path.join(profile, 'User'), { recursive: true });
   await fs.mkdir(path.join(workspace, '.vscode'), { recursive: true });
-  await fs.cp(path.join(root, 'examples', '4장'), path.join(workspace, '4장'), { recursive: true });
+  if (!process.env.AUTOCAPTURE_REUSE_PROFILE) { await fs.cp(path.join(root, 'examples', '4장'), path.join(workspace, '4장'), { recursive: true }); }
   if (process.env.AUTOCAPTURE_SAMPLE) {
     await fs.mkdir(path.join(workspace, '6장'), { recursive: true });
     await fs.copyFile(process.env.AUTOCAPTURE_SAMPLE, path.join(workspace, '6장', 'test.js'));
@@ -34,11 +34,15 @@ const { createWriteStream, writeFileSync } = require('node:fs');
     'assignment.captureDelayMs': 1200,
     'assignment.imageFormat': 'png'
   };
-  await fs.writeFile(path.join(profile, 'User', 'settings.json'), JSON.stringify(settings, null, 2));
+  if (process.env.AUTOCAPTURE_FRESH_PHASE) {
+    for (const key of Object.keys(settings)) { if (key.startsWith('assignment.')) { delete settings[key]; } }
+    settings['assignment.captureDelayMs'] = 1200;
+  }
+  if (!process.env.AUTOCAPTURE_REUSE_PROFILE) { await fs.writeFile(path.join(profile, 'User', 'settings.json'), JSON.stringify(settings, null, 2)); }
   console.log('Integration artifacts:', artifacts);
   // Spawn the executable directly: the stock test-electron Windows shell launcher
   // splits unquoted Korean/space-containing paths on some Node versions.
-  const log = createWriteStream(path.join(artifacts, 'host.log'));
+  const log = createWriteStream(path.join(artifacts, `${process.env.AUTOCAPTURE_FRESH_PHASE || 'host'}.log`));
   let executable = process.env.VSCODE_EXECUTABLE;
   if (!executable && process.platform === 'darwin') {
     const app = '/Applications/Visual Studio Code.app';
@@ -48,8 +52,9 @@ const { createWriteStream, writeFileSync } = require('node:fs');
   executable ||= path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Microsoft VS Code', 'Code.exe');
   const mainPidFile = path.join(artifacts, 'main.pid');
   const child = spawn(executable,
-    [workspace, '--user-data-dir', profile, '--extensions-dir', path.join(artifacts, 'extensions'), '--disable-extensions', '--skip-welcome', '--skip-release-notes', '--new-window',
-      `--extensionDevelopmentPath=${process.env.AUTOCAPTURE_PACKAGED_ROOT || root}`, `--extensionTestsPath=${path.join(root, 'out', 'test', 'integration', 'index.js')}`],
+    [workspace, '--user-data-dir', profile, '--extensions-dir', process.env.AUTOCAPTURE_INSTALLED_EXTENSIONS || path.join(artifacts, 'extensions'),
+      ...(process.env.AUTOCAPTURE_TEST_DRIVER ? [] : ['--disable-extensions']), '--skip-welcome', '--skip-release-notes', '--new-window',
+      `--extensionDevelopmentPath=${process.env.AUTOCAPTURE_TEST_DRIVER || process.env.AUTOCAPTURE_PACKAGED_ROOT || root}`, `--extensionTestsPath=${path.join(root, 'out', 'test', 'integration', 'index.js')}`],
     { shell: false, env: { ...process.env, ...(process.env.AUTOCAPTURE_BUNDLED_TEST ? {
       PYTHONHOME: path.join(artifacts, 'missing-old-python'), PYTHONPATH: path.join(artifacts, 'missing-old-modules'),
       PATH: process.platform === 'win32' ? path.join(process.env.SystemRoot || 'C:\\Windows', 'System32') : '/usr/bin:/bin:/usr/sbin:/sbin'

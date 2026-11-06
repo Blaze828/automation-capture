@@ -14,6 +14,58 @@ import { CmdRunManager } from '../../cmdRunManager';
 import { execFileSync } from 'child_process';
 import { prepareBundledRuntime } from '../../bundledRuntime';
 
+async function acceptPicker(command: string, next = 0): Promise<unknown> {
+  const pending = vscode.commands.executeCommand(command);
+  await delay(700);
+  for (let i = 0; i < next; i++) { await vscode.commands.executeCommand('workbench.action.quickOpenSelectNext'); }
+  await vscode.commands.executeCommand('workbench.action.acceptSelectedQuickOpenItem');
+  return pending;
+}
+
+async function freshSetup(extensionPath: string, output: string): Promise<void> {
+  const settings = vscode.workspace.getConfiguration('assignment');
+  assert.equal(settings.get('outputFolder'), '', 'first install has no output folder');
+  assert.equal(settings.get('imageFormat'), '', 'first install has no image format');
+  const folder = path.dirname(process.env.AUTOCAPTURE_WORKSPACE!);
+  const first = output + ' 첫번째';
+  await fs.mkdir(first, {recursive: true}); await fs.mkdir(output, {recursive: true});
+  const waitForFolder = async (expected: string) => {
+    const deadline = Date.now() + 300000;
+    while (Date.now() < deadline && settings.get('outputFolder') !== expected) { await delay(250); }
+    assert.equal(settings.get('outputFolder'), expected);
+  };
+  if (process.platform === 'darwin') {
+    const pid = (await fs.readFile(process.env.AUTOCAPTURE_MAIN_PID_FILE!, 'utf8')).trim();
+    for (const destination of [first, output, '--cancel']) {
+      execFileSync(new ConfigManager().pythonPath, ['-E', '-s', '-X', 'utf8',
+        path.resolve(__dirname, '../../../scripts/macos_first_setup.py'), pid, destination], {timeout: 30000, stdio: 'inherit'});
+      if (destination !== '--cancel') { await waitForFolder(destination); }
+    }
+  } else if (process.env.AUTOCAPTURE_MANUAL_SETUP === '1') {
+    for (const [stage, destination] of [['select-folder', first], ['change-folder', output]]) {
+      await fs.writeFile(path.join(folder, 'manual-step.json'), JSON.stringify({stage, destination}));
+      console.log('WAIT native folder UI:', stage, destination);
+      await waitForFolder(destination);
+    }
+    await fs.writeFile(path.join(folder, 'manual-step.json'), JSON.stringify({stage: 'cancel-folder'}));
+    console.log('WAIT native folder UI: cancel-folder');
+    const cancelled = await vscode.commands.executeCommand<{ok: boolean}>('assignment.selectOutputFolder');
+    assert.equal(cancelled?.ok, false);
+  } else {
+    // Hosted Windows has no local computer-use helper. Exercise the actual
+    // installation here; its native picker is checked in the local fresh profile.
+    await settings.update('outputFolder', output, vscode.ConfigurationTarget.Workspace);
+  }
+  assert.equal(settings.get('outputFolder'), output, 'cancel preserves the selected folder');
+  const result = await acceptPicker('assignment.selectImageFormat');
+  assert.notEqual((result as {ok?: boolean})?.ok, false);
+  assert.equal(settings.get('imageFormat'), 'png', 'first format picker selected PNG');
+  await fs.writeFile(path.join(folder, 'first-setup.json'), JSON.stringify({extensionPath,
+    output, imageFormat: 'png', nativeFolderDialog: process.platform === 'darwin' || process.env.AUTOCAPTURE_MANUAL_SETUP === '1',
+    restartedForNextPhase: true}, null, 2));
+  console.log('PASS first setup: output folder and real format picker; configuration saved for restart');
+}
+
 async function runApiTests(workspace: string, output: string): Promise<void> {
   const config = new ConfigManager();
   const files = new FileManager(config);
@@ -188,7 +240,14 @@ async function runScenarios(): Promise<void> {
   const workspace = process.env.AUTOCAPTURE_WORKSPACE!;
   const output = process.env.AUTOCAPTURE_OUTPUT!;
   const extension = vscode.extensions.getExtension('Blaze828.js-assignment-autocapture');
-  assert.ok(extension, 'extension is registered'); await extension.activate();
+  assert.ok(extension, 'extension is registered');
+  if (process.env.AUTOCAPTURE_FRESH_PHASE) {
+    assert.ok(extension.extensionPath.startsWith(process.env.AUTOCAPTURE_INSTALLED_EXTENSIONS! + path.sep), 'target is installed normally, separate from test driver');
+    for (let i = 0; i < 60 && !extension.isActive; i++) { await delay(500); }
+    assert.ok(extension.isActive, 'installed extension activates at startup without running a command');
+    console.log('PASS installed extension starts automatically in clean profile');
+  }
+  await extension.activate();
   if (process.env.AUTOCAPTURE_BUNDLED_TEST) {
     // The installed extension and this source-side test runner have separate
     // module instances; initialize the test-side services with the same payload.
@@ -197,6 +256,15 @@ async function runScenarios(): Promise<void> {
     assert.ok(config.nodePath.startsWith(path.join(extension.extensionPath, 'runtime', 'bundled')));
     assert.ok(config.pythonPath.startsWith(path.join(extension.extensionPath, 'runtime', 'bundled')));
     console.log('PASS packaged runtimes selected with missing user Node/Python and broken PYTHONHOME/PATH');
+  }
+  if (process.env.AUTOCAPTURE_FRESH_PHASE === 'setup') {
+    await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(path.join(workspace, '4장', '131.js')));
+    await freshSetup(extension.extensionPath, output); return;
+  }
+  if (process.env.AUTOCAPTURE_FRESH_PHASE) {
+    assert.equal(vscode.workspace.getConfiguration('assignment').get('outputFolder'), output);
+    assert.equal(vscode.workspace.getConfiguration('assignment').get('imageFormat'), 'png');
+    console.log('PASS selected output folder and format survive VS Code restart');
   }
   if (process.env.AUTOCAPTURE_API_ONLY === '1') {
     await runApiTests(workspace, output); await runCmdApiTests(workspace, extension.extensionPath); return;
@@ -263,6 +331,18 @@ async function runScenarios(): Promise<void> {
   assert.ok((await fs.stat(path.join(output, '4장', '자동 반복 요약 REPL.png'))).size > 1000);
   assert.equal(repl.exitStatus, undefined);
   console.log('PASS real REPL terminal-only capture; session remains alive');
+
+  if (process.env.AUTOCAPTURE_FRESH_PHASE) {
+    const result = await acceptPicker('assignment.exportChapterZip');
+    assert.notEqual((result as {ok?: boolean})?.ok, false);
+    const zip = path.join(output, '4장.zip');
+    const summary = execFileSync(new ConfigManager().pythonPath, ['-E', '-s', '-X', 'utf8', '-c',
+      'import sys,zipfile,json; z=zipfile.ZipFile(sys.argv[1]); assert z.testzip() is None; print(json.dumps(z.namelist()))', zip], {encoding: 'utf8'});
+    const entries: string[] = JSON.parse(summary);
+    assert.ok(entries.includes('131.js') && entries.includes('131 실행결과.png'));
+    assert.ok(entries.some(name => name.endsWith('.jpg')) && entries.some(name => name.endsWith('.webp')));
+    console.log('PASS real ZIP export through chapter picker; JS/PNG/JPG/WebP archive integrity');
+  }
 
   if (process.env.AUTOCAPTURE_SAMPLE) {
     const doc = await vscode.workspace.openTextDocument(path.join(workspace, '6장', 'test.js'));
