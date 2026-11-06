@@ -310,7 +310,10 @@ async function runScenarios(): Promise<void> {
   assert.ok((await fs.stat(again)).size > 1000);
   console.log('PASS capture again');
   for (const format of ['jpg', 'webp']) {
-    await vscode.workspace.getConfiguration('assignment').update('imageFormat', format, vscode.ConfigurationTarget.Workspace);
+    if (process.env.AUTOCAPTURE_FRESH_PHASE) {
+      await acceptPicker('assignment.selectImageFormat', format === 'jpg' ? 1 : 2);
+      assert.equal(vscode.workspace.getConfiguration('assignment').get('imageFormat'), format);
+    } else { await vscode.workspace.getConfiguration('assignment').update('imageFormat', format, vscode.ConfigurationTarget.Workspace); }
     const result = await vscode.commands.executeCommand<{ok: boolean; error: string}>('assignment.captureAgain');
     assert.notEqual(result?.ok, false, result?.error);
     const bytes = await fs.readFile(path.join(output, '4장', `오류 예제 실행결과_02.${format}`));
@@ -348,6 +351,24 @@ async function runScenarios(): Promise<void> {
   console.log('PASS real REPL terminal-only capture; session remains alive');
 
   if (process.env.AUTOCAPTURE_FRESH_PHASE) {
+    const source = path.join(workspace, '4장', '수동 중단.js');
+    await fs.writeFile(source, "let i=0;setInterval(()=>console.log('사용자 중단',i++),30)");
+    await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(source));
+    await vscode.workspace.getConfiguration('assignment').update('timeoutSeconds', 60, vscode.ConfigurationTarget.Workspace);
+    const pending = vscode.commands.executeCommand<{ok?: boolean; error?: string}>('assignment.runAndCapture');
+    await delay(2500); await vscode.commands.executeCommand('assignment.stopRun');
+    const stopped = await pending;
+    assert.notEqual(stopped?.ok, false, stopped?.error);
+    assert.ok((await fs.stat(path.join(output, '4장', '수동 중단 실행결과.png'))).size > 1000);
+    console.log('PASS manual Stop Run command before timeout; representative screenshot saved');
+    for (const mode of [0, 1, 2]) {
+      const before = (await fs.readdir(path.join(output, '4장'))).filter(name => name.endsWith('.png')).length;
+      const result = await acceptPicker('assignment.captureMultiple', mode);
+      assert.notEqual((result as {ok?: boolean})?.ok, false);
+      const after = (await fs.readdir(path.join(output, '4장'))).filter(name => name.endsWith('.png')).length;
+      assert.ok(after > before, `manual capture mode ${mode} saves actual PNG pages`);
+    }
+    console.log('PASS manual capture picker: code+output, code only, output only');
     const result = await acceptPicker('assignment.exportChapterZip');
     assert.notEqual((result as {ok?: boolean})?.ok, false);
     const zip = path.join(output, '4장.zip');
@@ -357,6 +378,8 @@ async function runScenarios(): Promise<void> {
     assert.ok(entries.includes('131.js') && entries.includes('131 실행결과.png'));
     assert.ok(entries.some(name => name.endsWith('.jpg')) && entries.some(name => name.endsWith('.webp')));
     console.log('PASS real ZIP export through chapter picker; JS/PNG/JPG/WebP archive integrity');
+    await vscode.commands.executeCommand('assignment.openOutputFolder');
+    console.log('PASS Open Output Folder command requested the saved chapter in the OS file manager');
   }
 
   if (process.env.AUTOCAPTURE_SAMPLE) {
@@ -378,10 +401,11 @@ async function runScenarios(): Promise<void> {
     }
   }
   await fs.writeFile(path.join(process.env.AUTOCAPTURE_ARTIFACTS || path.dirname(workspace), 'gui-verification.json'), JSON.stringify({
-    platform: process.platform, architecture: process.arch, vscode: vscode.version,
+    platform: process.platform, architecture: process.arch, vscode: vscode.version, extensionVersion: extension.packageJSON.version,
     completedAt: new Date().toISOString(), formats: ['png', 'jpg', 'webp'],
     scenarios: ['normal JS', 'runtime error', 'capture again', 'automatic height', 'long output pages',
-      'long source with short output', 'repeating output', 'REPL terminal-only'],
+      'long source with short output', 'repeating output', 'REPL terminal-only',
+      ...(process.env.AUTOCAPTURE_FRESH_PHASE ? ['format picker', 'manual stop', 'manual capture modes', 'ZIP export', 'open output folder'] : [])],
     guiCaptureVerified: true
   }, null, 2));
 }

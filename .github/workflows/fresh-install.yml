@@ -8,6 +8,9 @@ on:
         default: false
 permissions:
   contents: read
+concurrency:
+  group: fresh-install-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   fresh:
     name: ${{ matrix.name }}
