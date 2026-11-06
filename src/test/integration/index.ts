@@ -12,6 +12,7 @@ import { CaptureLayout } from '../../captureLayout';
 import { CmdTerminalManager } from '../../cmdTerminalManager';
 import { CmdRunManager } from '../../cmdRunManager';
 import { execFileSync } from 'child_process';
+import { prepareBundledRuntime } from '../../bundledRuntime';
 
 async function runApiTests(workspace: string, output: string): Promise<void> {
   const config = new ConfigManager();
@@ -187,6 +188,9 @@ async function runScenarios(): Promise<void> {
   const extension = vscode.extensions.getExtension('Blaze828.js-assignment-autocapture');
   assert.ok(extension, 'extension is registered'); await extension.activate();
   if (process.env.AUTOCAPTURE_BUNDLED_TEST) {
+    // The installed extension and this source-side test runner have separate
+    // module instances; initialize the test-side services with the same payload.
+    await prepareBundledRuntime(extension.extensionPath, true);
     const config = new ConfigManager();
     assert.ok(config.nodePath.startsWith(path.join(extension.extensionPath, 'runtime', 'bundled')));
     assert.ok(config.pythonPath.startsWith(path.join(extension.extensionPath, 'runtime', 'bundled')));

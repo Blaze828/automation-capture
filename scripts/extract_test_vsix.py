@@ -5,6 +5,8 @@ import platform
 import sys
 import zipfile
 
+sys.stdout.reconfigure(encoding='utf-8')
+
 root = Path(__file__).resolve().parents[1]
 version = json.loads((root / 'package.json').read_text(encoding='utf-8'))['version']
 target = sys.argv[1]
