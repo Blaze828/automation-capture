@@ -41,6 +41,7 @@ jobs:
       - name: Node tests including real CMD or zsh reuse
         run: npm test
       - name: Install isolated VS Code on Mac
+        id: vscode
         if: runner.os == 'macOS'
         shell: bash
         run: |
@@ -62,7 +63,7 @@ jobs:
         if: always() && runner.os == 'macOS'
         run: python scripts/macos_permissions.py
       - name: Mac real window, output pagination and REPL capture
-        if: runner.os == 'macOS'
+        if: ${{ !cancelled() && runner.os == 'macOS' && steps.vscode.outcome == 'success' }}
         timeout-minutes: 6
         run: npm run test:integration
       - name: Capture Mac desktop on integration failure

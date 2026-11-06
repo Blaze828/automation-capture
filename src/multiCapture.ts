@@ -40,11 +40,18 @@ export class MultiCapture {
           if (token.isCancellationRequested) { break; }
           editor.revealRange(new vscode.Range(line, 0, line, 0), vscode.TextEditorRevealType.AtTop);
           await delay(250);
-          if (!await savePage()) { break; }
+          // revealRange schedules a renderer update. On a busy Mac the previous
+          // page can remain visible after the initial delay; wait before shooting.
+          const deadline = Date.now() + 2000;
+          while ((editor.visibleRanges.at(-1)?.end.line ?? -1) <= line + 1 &&
+            (editor.visibleRanges.at(-1)?.end.line ?? -1) < document.lineCount - 1 && Date.now() < deadline) {
+            await delay(50);
+          }
           const end = editor.visibleRanges.at(-1)?.end.line;
           if (end === undefined || end < line) { throw new Error('코드 표시 범위를 확인하지 못했습니다.'); }
+          if (end < document.lineCount - 1 && end <= line + 1) { throw new Error('한 줄이 편집기 영역을 초과합니다. 줄 바꿈과 글자 크기를 조정해 다시 캡처하세요.'); }
+          if (!await savePage()) { break; }
           if (end >= document.lineCount - 1) { break; }
-          if (end <= line + 1) { throw new Error('한 줄이 편집기 영역을 초과합니다. 줄 바꿈과 글자 크기를 조정해 다시 캡처하세요.'); }
           line = end - 1; // Overlap boundary lines to avoid losing partially visible text.
         }
       }

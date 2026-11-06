@@ -11,6 +11,7 @@ import { MultiCapture } from '../../multiCapture';
 import { CaptureLayout } from '../../captureLayout';
 import { CmdTerminalManager } from '../../cmdTerminalManager';
 import { CmdRunManager } from '../../cmdRunManager';
+import { execFileSync } from 'child_process';
 
 async function runApiTests(workspace: string, output: string): Promise<void> {
   const config = new ConfigManager();
@@ -144,8 +145,12 @@ async function runCmdApiTests(workspace: string, extensionPath: string): Promise
     try {
       let pages = 0;
       const multi = new MultiCapture({capture: async () => { pages++; }}, terminal);
-      await multi.capturePages(doc, submission, {hwnd: 0, pid: 0}, 'output', cancel.token);
-      assert.equal(pages, 1);
+      const retained = terminal.captureText;
+      const images = await multi.capturePages(doc, submission, {hwnd: 0, pid: 0}, 'output', cancel.token);
+      assert.ok(pages >= 1);
+      assert.equal(pages, images.length);
+      assert.equal(new Set(images).size, images.length);
+      assert.equal(terminal.captureText, retained);
     } finally { cancel.dispose(); }
     await terminal.finishCapture();
     assert.ok(terminal.exists, 'CMD stays alive for ordinary commands after capture');
@@ -169,7 +174,7 @@ async function runCmdApiTests(workspace: string, extensionPath: string): Promise
   } finally { await terminal.finishCapture(); runner.dispose(); terminal.dispose(); }
 }
 
-export async function run(): Promise<void> {
+async function runScenarios(): Promise<void> {
   const workspace = process.env.AUTOCAPTURE_WORKSPACE!;
   const output = process.env.AUTOCAPTURE_OUTPUT!;
   const extension = vscode.extensions.getExtension('Blaze828.js-assignment-autocapture');
@@ -242,5 +247,17 @@ export async function run(): Promise<void> {
       else { assert.equal(image.subarray(8, 12).toString(), 'WEBP'); }
       console.log(`PASS real ${format} capture with matching file signature`);
     }
+  }
+}
+
+export async function run(): Promise<void> {
+  try { await runScenarios(); }
+  catch (error) {
+    if (process.platform === 'darwin' && process.env.CI) {
+      try {
+        execFileSync('/usr/sbin/screencapture', ['-x', path.join(path.dirname(process.env.AUTOCAPTURE_WORKSPACE!), 'failure.png')], {timeout: 10000});
+      } catch (captureError) { console.error('Failure screenshot:', String(captureError)); }
+    }
+    throw error;
   }
 }
