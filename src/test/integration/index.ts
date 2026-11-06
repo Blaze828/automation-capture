@@ -15,6 +15,9 @@ import { execFile, execFileSync, spawn } from 'child_process';
 import { promisify } from 'util';
 import { prepareBundledRuntime } from '../../bundledRuntime';
 
+const sameLocation = (actual: unknown, expected: string): boolean => typeof actual === 'string' &&
+  (process.platform === 'win32' ? path.resolve(actual).toLowerCase() === path.resolve(expected).toLowerCase() : actual === expected);
+
 async function acceptPicker(command: string, next = 0): Promise<unknown> {
   const pending = vscode.commands.executeCommand(command);
   await delay(700);
@@ -32,8 +35,8 @@ async function freshSetup(extensionPath: string, output: string): Promise<void> 
   await fs.mkdir(first, {recursive: true}); await fs.mkdir(output, {recursive: true});
   const waitForFolder = async (expected: string) => {
     const deadline = Date.now() + 300000;
-    while (Date.now() < deadline && config.settings.get('outputFolder') !== expected) { await delay(250); }
-    assert.equal(config.settings.get('outputFolder'), expected);
+    while (Date.now() < deadline && !sameLocation(config.settings.get('outputFolder'), expected)) { await delay(250); }
+    assert.ok(sameLocation(config.settings.get('outputFolder'), expected), 'selected native folder matches expected path');
   };
   if (process.platform === 'darwin') {
     const pid = (await fs.readFile(process.env.AUTOCAPTURE_MAIN_PID_FILE!, 'utf8')).trim();
@@ -64,7 +67,7 @@ async function freshSetup(extensionPath: string, output: string): Promise<void> 
     // installation here; its native picker is checked in the local fresh profile.
     await config.settings.update('outputFolder', output, vscode.ConfigurationTarget.Workspace);
   }
-  assert.equal(config.settings.get('outputFolder'), output, 'cancel preserves the selected folder');
+  assert.ok(sameLocation(config.settings.get('outputFolder'), output), 'cancel preserves the selected folder');
   const result = await acceptPicker('assignment.selectImageFormat');
   assert.notEqual((result as {ok?: boolean})?.ok, false);
   assert.equal(config.settings.get('imageFormat'), 'png', 'first format picker selected PNG');
@@ -274,7 +277,7 @@ async function runScenarios(): Promise<void> {
     await freshSetup(extension.extensionPath, output); return;
   }
   if (process.env.AUTOCAPTURE_FRESH_PHASE) {
-    assert.equal(vscode.workspace.getConfiguration('assignment').get('outputFolder'), output);
+    assert.ok(sameLocation(vscode.workspace.getConfiguration('assignment').get('outputFolder'), output));
     assert.equal(vscode.workspace.getConfiguration('assignment').get('imageFormat'), 'png');
     console.log('PASS selected output folder and format survive VS Code restart');
   }
