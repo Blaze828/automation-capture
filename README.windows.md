@@ -1,12 +1,12 @@
 # Windows 설치·사용 안내
 
-**VSIX 파일 하나만 설치하면 됩니다. Node.js·Python·캡처 도구가 모두 포함되어 있습니다.** · 0.7.2
+**VSIX 파일 하나만 설치하면 됩니다. Node.js·Python·캡처 도구가 모두 포함되어 있습니다.** · 0.7.3
 
 [전체 안내](README.md) · [Mac 안내](README.macos.md)
 
 ## 처음 설치하기
 
-1. **[Windows용 설치 파일 받기](https://github.com/Blaze828/automation-capture/releases/download/v0.7.2/js-assignment-autocapture-0.7.2-win32-x64.vsix)**를 누릅니다.
+1. **[Windows용 설치 파일 받기](https://github.com/Blaze828/automation-capture/releases/download/v0.7.3/js-assignment-autocapture-0.7.3-win32-x64.vsix)**를 누릅니다.
 2. VS Code에서 **확장 → 위쪽 ⋯ → VSIX에서 설치…**를 누릅니다.
 3. 다운로드한 **`.vsix` 파일**을 선택합니다. 다시 로드 안내가 나오면 누릅니다.
 

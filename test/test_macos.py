@@ -5,10 +5,11 @@ import sys
 import tempfile
 import unittest
 from unittest.mock import patch
+from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'runtime'))
-from macos_native import crop_pixels, select_window, validate_window
-from terminal_layout_macos import choose_geometry, LayoutUnavailable
+from macos_native import crop_pixels, select_window, validate_window, verify_window
+from terminal_layout_macos import choose_geometry, verify_drag_target, LayoutUnavailable
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'python'))
 import capture_macos
 
@@ -23,8 +24,9 @@ class MacWindowTest(unittest.TestCase):
     def test_binds_only_frontmost_window_and_expected_file(self):
         target = window()
         self.assertEqual(select_window([target, window(11)], 20, 'test.js'), target)
+        self.assertEqual(select_window([window(pid=99), target], 20, 'test.js'), target)
         with self.assertRaises(RuntimeError):
-            select_window([window(pid=99), target], 20, 'test.js')
+            select_window([window(pid=99)], 20, 'test.js')
         with self.assertRaises(RuntimeError):
             select_window([window(title='other.js'), target], 20, 'test.js')
 
@@ -71,8 +73,44 @@ class MacWindowTest(unittest.TestCase):
                 validate_window([{**cursor, **changed}, window()], 10, 20,
                                 cursor_pids=trusted, cursor_level=2147483630)
 
+    def test_window_only_capture_ignores_foreign_overlays_at_any_layer(self):
+        for layer in (0, 3, 20, 24, 1000, 2147483630):
+            overlay = window(99, pid=99, title='Unknown overlay', layer=layer)
+            with self.subTest(layer=layer):
+                self.assertEqual(validate_window([overlay, window()], 10, 20,
+                                                  check_occlusion=False), window())
+
+    def test_window_only_capture_still_rejects_invalid_or_switched_target(self):
+        for windows in ([], [window(pid=99)], [window(layer=3)],
+                        [{**window(), 'kCGWindowIsOnscreen': False}],
+                        [{**window(), 'kCGWindowAlpha': 0}], [window(11), window()]):
+            with self.subTest(windows=windows), self.assertRaises(RuntimeError):
+                validate_window(windows, 10, 20, check_occlusion=False)
+
+    def test_window_capture_still_rejects_foreground_application_change(self):
+        with patch.dict(sys.modules, {'AppKit': SimpleNamespace(NSRunningApplication=object()),
+                                     'Quartz': SimpleNamespace()}), \
+                patch('macos_native.frontmost_pid', return_value=99):
+            with self.assertRaisesRegex(RuntimeError, '다른 창으로 전환'):
+                verify_window(10, 20)
+
 
 class MacTerminalTest(unittest.TestCase):
+    def test_drag_requires_actual_target_at_sash_point(self):
+        fake = SimpleNamespace(AXUIElementCreateSystemWide=lambda: object(),
+            AXUIElementCopyElementAtPosition=lambda *args: (0, object()),
+            AXUIElementGetPid=lambda *args: (0, 20))
+        with patch.dict(sys.modules, {'ApplicationServices': fake}), \
+                patch('terminal_layout_macos.verify_window', return_value=window()):
+            self.assertEqual(verify_drag_target(10, 20, (500, 600)), window())
+            for error, pid in ((0, 99), (1, 20)):
+                fake.AXUIElementGetPid = lambda *args: (error, pid)
+                with self.assertRaises(LayoutUnavailable):
+                    verify_drag_target(10, 20, (500, 600))
+            fake.AXUIElementCopyElementAtPosition = lambda *args: (1, None)
+            with self.assertRaises(LayoutUnavailable):
+                verify_drag_target(10, 20, (500, 600))
+
     def nodes(self):
         return [
             {'classes': ['monaco-workbench', 'panel-position-bottom'], 'identifier': '', 'bounds': (0, 0, 1200, 1000)},

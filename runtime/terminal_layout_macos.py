@@ -104,9 +104,23 @@ def measure_terminal(window_id, pid):
     return choose_geometry(nodes, focus)
 
 
+def verify_drag_target(window_id, pid, point):
+    """Hit-test only the sash we will actually touch; never exempt overlays by name."""
+    import ApplicationServices as ax
+    window = verify_window(window_id, pid)
+    error, element = ax.AXUIElementCopyElementAtPosition(ax.AXUIElementCreateSystemWide(),
+                                                       float(point[0]), float(point[1]), None)
+    if error or element is None:
+        raise LayoutUnavailable('터미널 경계선을 확인하지 못해 높이는 유지하고 캡처합니다.')
+    error, actual_pid = ax.AXUIElementGetPid(element, None)
+    if error or actual_pid != pid:
+        raise LayoutUnavailable('터미널 경계선을 다른 창이 가려 높이는 유지하고 캡처합니다.')
+    return window
+
+
 def drag_once(window_id, pid, plan):
     import Quartz as q
-    verify_window(window_id, pid)
+    verify_drag_target(window_id, pid, plan['start'])
     old = q.CGEventGetLocation(q.CGEventCreate(None))
     start, end = tuple(plan['start']), tuple(plan['end'])
     source = q.CGEventSourceCreate(q.kCGEventSourceStateHIDSystemState)
@@ -124,6 +138,7 @@ def drag_once(window_id, pid, plan):
     try:
         post(q.kCGEventMouseMoved, start)
         time.sleep(0.1)  # Let WindowServer/Chromium hit-test the sash before pressing.
+        verify_drag_target(window_id, pid, start)
         post(q.kCGEventLeftMouseDown, start)
         pressed = True
         time.sleep(0.1)
@@ -160,7 +175,11 @@ def main():
         plan = plan_resize(geometry['position'], geometry['screen'], geometry['editor'], geometry['sash'],
                            args.current_rows, args.output_rows)
     if plan and not args.probe:
-        drag_once(args.hwnd, args.pid, plan)
+        try:
+            drag_once(args.hwnd, args.pid, plan)
+        except LayoutUnavailable as error:
+            print(json.dumps({'resized': False, 'reason': str(error)}, ensure_ascii=False))
+            return
     if os.environ.get('AUTOCAPTURE_LAYOUT_DEBUG'):
         from pathlib import Path
         debug = Path(os.environ['AUTOCAPTURE_LAYOUT_DEBUG'])

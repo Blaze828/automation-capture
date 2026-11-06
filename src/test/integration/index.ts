@@ -350,6 +350,38 @@ async function runScenarios(): Promise<void> {
   assert.equal(repl.exitStatus, undefined);
   console.log('PASS real REPL terminal-only capture; session remains alive');
 
+  if (process.platform === 'darwin' && process.env.GITHUB_ACTIONS === 'true') {
+    const source = path.join(workspace, '4장', 'Mac 창 캡처.js');
+    await fs.writeFile(source, "console.log('Mac 창 전용 캡처 확인')");
+    const doc = await vscode.workspace.openTextDocument(source);
+    await vscode.window.showTextDocument(doc, {preview: false});
+    await delay(700);
+    const config = new ConfigManager();
+    const script = path.resolve(__dirname, '../../../scripts/macos_capture_overlay.py');
+    const receipt = path.join(process.env.AUTOCAPTURE_ARTIFACTS || path.dirname(workspace), 'overlay.json');
+    const overlay = spawn(config.pythonPath, ['-E', '-s', '-X', 'utf8', script, receipt], {stdio: ['ignore', 'pipe', 'pipe']});
+    let overlayError = '';
+    overlay.stderr.on('data', chunk => { overlayError += chunk; });
+    try {
+      for (let i = 0; i < 60; i++) {
+        if (await fs.stat(receipt).catch(() => false)) { break; }
+        assert.equal(overlay.exitCode, null, overlayError); await delay(100);
+      }
+      assert.ok(await fs.stat(receipt).catch(() => false), overlayError || 'overlay became visible');
+      await delay(800);
+      const captured = await vscode.commands.executeCommand<{ok?: boolean; error?: string}>('assignment.runAndCapture');
+      assert.notEqual(captured?.ok, false, captured?.error);
+      await vscode.commands.executeCommand('assignment.startRepl');
+      vscode.window.terminals.find(t => t.name.startsWith('Assignment REPL'))!.sendText("console.log('REPL 창 전용 확인')");
+      await delay(500);
+      const replCapture = await vscode.commands.executeCommand<{ok?: boolean; error?: string}>('assignment.captureRepl');
+      assert.notEqual(replCapture?.ok, false, replCapture?.error);
+      const checked = await promisify(execFile)(config.pythonPath, ['-E', '-s', '-X', 'utf8', script, receipt, '--check',
+        path.join(output, '4장', 'Mac 창 캡처 실행결과.png'), path.join(output, '4장', 'Mac 창 캡처 REPL.png')], {timeout: 15000});
+      console.log(checked.stdout);
+    } finally { overlay.kill(); }
+  }
+
   if (process.env.AUTOCAPTURE_FRESH_PHASE) {
     const source = path.join(workspace, '4장', '수동 중단.js');
     await fs.writeFile(source, "let i=0;setInterval(()=>console.log('사용자 중단',i++),30)");
@@ -406,6 +438,7 @@ async function runScenarios(): Promise<void> {
     completedAt: new Date().toISOString(), formats: ['png', 'jpg', 'webp'],
     scenarios: ['normal JS', 'runtime error', 'capture again', 'automatic height', 'long output pages',
       'long source with short output', 'repeating output', 'REPL terminal-only',
+      ...(process.platform === 'darwin' && process.env.GITHUB_ACTIONS === 'true' ? ['real foreign overlay excluded from window and REPL capture'] : []),
       ...(process.env.AUTOCAPTURE_FRESH_PHASE ? ['format picker', 'manual stop', 'manual capture modes', 'ZIP export', 'open output folder'] : [])],
     guiCaptureVerified: true
   }, null, 2));

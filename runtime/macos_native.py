@@ -15,11 +15,11 @@ def intersects(a, b):
 
 
 def select_window(windows, pid, title):
-    # Window list order is front to back. Do not pick an inactive VS Code window
-    # just because its title happens to contain the requested file name.
-    visible = [w for w in windows if w.get('kCGWindowLayer') == 0
+    # The caller has checked the frontmost application. Non-activating foreign
+    # overlays may still precede Code in this list; window capture excludes them.
+    visible = [w for w in windows if int(w['kCGWindowOwnerPID']) == pid and w.get('kCGWindowLayer') == 0
                and w.get('kCGWindowAlpha', 1) > 0 and w.get('kCGWindowIsOnscreen', True)]
-    if not visible or int(visible[0]['kCGWindowOwnerPID']) != pid:
+    if not visible:
         raise RuntimeError('대상 VS Code 창을 전면에 두고 다시 실행하세요.')
     window = visible[0]
     if not title or title.casefold() not in str(window.get('kCGWindowName', '')).casefold():
@@ -27,11 +27,22 @@ def select_window(windows, pid, title):
     return window
 
 
-def validate_window(windows, window_id, pid, dock_pids=(), cursor_pids=(), cursor_level=None):
+def validate_window(windows, window_id, pid, dock_pids=(), cursor_pids=(), cursor_level=None,
+                    *, check_occlusion=True):
     target = next((w for w in windows if int(w['kCGWindowNumber']) == window_id), None)
     if (not target or int(target['kCGWindowOwnerPID']) != pid or target.get('kCGWindowLayer') != 0
             or not target.get('kCGWindowIsOnscreen', True) or target.get('kCGWindowAlpha', 1) <= 0):
         raise RuntimeError('캡처할 VS Code 창이 닫혔거나 변경되었습니다.')
+    if not check_occlusion:
+        # screencapture -l captures this window's backing surface, not the screen
+        # rectangle. Other processes' overlays cannot enter the resulting image.
+        # Still reject switching to another normal window of the same Code app.
+        front = next((w for w in windows if int(w['kCGWindowOwnerPID']) == pid
+                      and w.get('kCGWindowLayer') == 0 and w.get('kCGWindowIsOnscreen', True)
+                      and w.get('kCGWindowAlpha', 1) > 0), None)
+        if front is None or int(front['kCGWindowNumber']) != window_id:
+            raise RuntimeError('활성 VS Code 창이 변경되었습니다. 원본 JS 창에서 다시 캡처하세요.')
+        return target
     bounds = rect(target['kCGWindowBounds'])
     for window in windows:
         if int(window['kCGWindowNumber']) == window_id:
@@ -98,14 +109,16 @@ def is_system_window_server(pid):
         return False
 
 
-def verify_window(window_id, pid):
+def verify_window(window_id, pid, *, check_occlusion=False):
     from AppKit import NSRunningApplication
     import Quartz as q
     if frontmost_pid() != pid:
         raise RuntimeError('대상 VS Code 창에서 다른 창으로 전환되었습니다.')
+    windows = window_list()
+    if not check_occlusion:
+        return validate_window(windows, window_id, pid, check_occlusion=False)
     dock_pids = {int(app.processIdentifier()) for app in
                  NSRunningApplication.runningApplicationsWithBundleIdentifier_('com.apple.dock')}
-    windows = window_list()
     cursor_level = q.CGWindowLevelForKey(q.kCGCursorWindowLevelKey)
     cursor_pids = {int(w['kCGWindowOwnerPID']) for w in windows
                    if w.get('kCGWindowLayer') == cursor_level and w.get('kCGWindowName') == 'Cursor'
