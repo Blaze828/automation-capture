@@ -30,7 +30,7 @@ async function freshSetup(extensionPath: string, output: string): Promise<void> 
   const config = new ConfigManager();
   assert.equal(config.settings.get('outputFolder'), '', 'first install has no output folder');
   assert.equal(config.settings.get('imageFormat'), '', 'first install has no image format');
-  const folder = path.dirname(process.env.AUTOCAPTURE_WORKSPACE!);
+  const folder = process.env.AUTOCAPTURE_ARTIFACTS || path.dirname(process.env.AUTOCAPTURE_WORKSPACE!);
   const first = output + ' 첫번째';
   await fs.mkdir(first, {recursive: true}); await fs.mkdir(output, {recursive: true});
   const waitForFolder = async (expected: string) => {
@@ -310,7 +310,7 @@ async function runScenarios(): Promise<void> {
   assert.ok((await fs.stat(again)).size > 1000);
   console.log('PASS capture again');
   for (const format of ['jpg', 'webp']) {
-    await vscode.workspace.getConfiguration('assignment').update('imageFormat', format, vscode.ConfigurationTarget.Global);
+    await vscode.workspace.getConfiguration('assignment').update('imageFormat', format, vscode.ConfigurationTarget.Workspace);
     const result = await vscode.commands.executeCommand<{ok: boolean; error: string}>('assignment.captureAgain');
     assert.notEqual(result?.ok, false, result?.error);
     const bytes = await fs.readFile(path.join(output, '4장', `오류 예제 실행결과_02.${format}`));
@@ -318,7 +318,7 @@ async function runScenarios(): Promise<void> {
     else { assert.equal(bytes.subarray(8, 12).toString(), 'WEBP'); }
     console.log(`PASS real ${format} capture with matching file signature`);
   }
-  await vscode.workspace.getConfiguration('assignment').update('imageFormat', 'png', vscode.ConfigurationTarget.Global);
+  await vscode.workspace.getConfiguration('assignment').update('imageFormat', 'png', vscode.ConfigurationTarget.Workspace);
 
   const scenarios = [
     {name: '자동 높이', code: "for(let i=1;i<=18;i++) console.log('높이 조절', i)", multiple: false},
@@ -377,7 +377,7 @@ async function runScenarios(): Promise<void> {
       console.log(`PASS real ${format} capture with matching file signature`);
     }
   }
-  await fs.writeFile(path.join(path.dirname(workspace), 'gui-verification.json'), JSON.stringify({
+  await fs.writeFile(path.join(process.env.AUTOCAPTURE_ARTIFACTS || path.dirname(workspace), 'gui-verification.json'), JSON.stringify({
     platform: process.platform, architecture: process.arch, vscode: vscode.version,
     completedAt: new Date().toISOString(), formats: ['png', 'jpg', 'webp'],
     scenarios: ['normal JS', 'runtime error', 'capture again', 'automatic height', 'long output pages',
