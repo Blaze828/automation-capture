@@ -20,14 +20,14 @@ macOS 13 이상에서 아래 프로그램을 준비합니다. 이미 설치했�
 
 | 표시된 종류 | 받을 파일 |
 |---|---|
-| **Apple M1·M2·M3·M4 등 M시리즈** | **[M시리즈용 다운로드](https://github.com/Blaze828/automation-capture/actions/runs/42194055684/artifacts/13492110481)** |
-| **Intel** | **[Intel용 다운로드](https://github.com/Blaze828/automation-capture/actions/runs/42194055684/artifacts/13491621447)** |
+| **Apple M1·M2·M3·M4 등 M시리즈** | **[M시리즈용 다운로드](https://github.com/Blaze828/automation-capture/releases/download/v0.6.0/js-assignment-autocapture-0.6.0-darwin-arm64.vsix)** |
+| **Intel** | **[Intel용 다운로드](https://github.com/Blaze828/automation-capture/releases/download/v0.6.0/js-assignment-autocapture-0.6.0-darwin-x64.vsix)** |
 
-GitHub 로그인이 필요합니다. 파일 하나를 받은 뒤 다음 순서로 설치하세요.
+로그인 없이 설치 파일을 바로 받을 수 있습니다.
 
-1. 받은 **ZIP을 압축 해제**합니다.
+1. 내 Mac에 맞는 **`.vsix` 파일 하나**를 다운로드합니다.
 2. VS Code에서 왼쪽 **확장 → 위쪽 ⋯ → VSIX에서 설치…**를 누릅니다.
-3. 압축을 푼 폴더의 **`dist` 안에 있는 `.vsix` 파일**을 선택합니다.
+3. **다운로드 폴더의 `.vsix` 파일**을 선택합니다.
 
 ### 3. 캡처 도구 준비
 
@@ -98,7 +98,7 @@ REPL은 **E로 시작 → JS 입력 → D로 저장** 순서입니다.
 - **`node`를 찾지 못함:** 터미널에서 `command -v node`를 실행하고, 나온 경로를 VS Code 설정의 `assignment.nodePath`에 넣으세요.
 - **캡처 권한 오류:** 위의 두 권한과 Python 경로를 확인하고 VS Code를 완전히 종료한 뒤 다시 여세요.
 - **단축키가 안 됨:** `Command+Shift+P`에서 `Assignment: Run and Capture`를 검색해 실행하세요.
-- **다운로드가 안 됨:** GitHub 로그인을 확인하세요. 링크가 만료됐다면 [Actions](https://github.com/Blaze828/automation-capture/actions)의 최근 성공한 실행 → Artifacts에서 받으세요.
+- **다운로드가 안 됨:** [릴리스 페이지](https://github.com/Blaze828/automation-capture/releases/latest)의 **Assets**에서 내 Mac에 맞는 `.vsix` 파일을 받으세요.
 - **Rosetta로 Intel VS Code를 사용 중:** Intel용 확장 파일을 설치하세요.
 
 </details>

@@ -11,6 +11,8 @@
 | Windows 10/11 · x64 | **[Windows 설치하기](README.windows.md)** |
 | Mac · M시리즈 또는 Intel | **[Mac 설치하기](README.macos.md)** |
 
+설치 파일은 [공개 릴리스](https://github.com/Blaze828/automation-capture/releases/latest)에서 로그인 없이 받을 수 있습니다.
+
 ## 2. 실행하기 — 평소에는 이것만
 
 1. VS Code에서 **파일 → 폴더 열기**로 과제 폴더를 엽니다.

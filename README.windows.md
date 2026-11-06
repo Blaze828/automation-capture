@@ -16,11 +16,11 @@ Windows 10/11 x64에서 아래 프로그램을 준비합니다. 이미 설치했
 
 ### 2. 확장 설치 파일 받기
 
-**[Windows 설치 파일 다운로드](https://github.com/Blaze828/automation-capture/actions/runs/42194055684/artifacts/13491641004)** · GitHub 로그인이 필요합니다.
+**[Windows 설치 파일 다운로드](https://github.com/Blaze828/automation-capture/releases/download/v0.6.0/js-assignment-autocapture-0.6.0-win32-x64.vsix)** · 로그인 없이 바로 받습니다.
 
-1. 받은 **ZIP을 압축 해제**합니다.
+1. **`.vsix` 설치 파일**을 다운로드합니다.
 2. VS Code에서 왼쪽 **확장 → 위쪽 ⋯ → VSIX에서 설치…**를 누릅니다.
-3. 압축을 푼 폴더의 **`dist` 안에 있는 `.vsix` 파일**을 선택합니다.
+3. **다운로드 폴더의 `.vsix` 파일**을 선택합니다.
 
 ### 3. 캡처 도구 준비
 
@@ -78,7 +78,7 @@ REPL은 **E로 시작 → JS 입력 → D로 저장** 순서입니다.
 - **`python`을 찾지 못함 / Store가 열림:** Python 설치를 확인하고 PowerShell을 새로 여세요.
 - **`node`를 찾지 못함:** Node.js를 설치한 뒤 VS Code를 다시 여세요.
 - **단축키가 안 됨:** `Ctrl+Shift+P`에서 `Assignment: Run and Capture`를 검색해 실행하세요.
-- **다운로드가 안 됨:** GitHub 로그인을 확인하세요. 링크가 만료됐다면 [Actions](https://github.com/Blaze828/automation-capture/actions)의 최근 성공한 실행 → Artifacts → `autocapture-win32-x64`에서 받으세요.
+- **다운로드가 안 됨:** [릴리스 페이지](https://github.com/Blaze828/automation-capture/releases/latest)의 **Assets**에서 `win32-x64.vsix`로 끝나는 파일을 받으세요.
 
 </details>
 
