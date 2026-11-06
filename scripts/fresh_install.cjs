@@ -8,7 +8,7 @@ const {spawn, execFileSync} = require('node:child_process');
 (async () => {
   const root = path.resolve(__dirname, '..');
   const candidate = process.env.AUTOCAPTURE_BUILD_CANDIDATE === 'true';
-  const version = process.env.AUTOCAPTURE_RELEASE_VERSION || (candidate ? require('../package.json').version : '0.7.1');
+  const version = process.env.AUTOCAPTURE_RELEASE_VERSION || require('../package.json').version;
   const target = `${process.platform}-${process.arch}`;
   const artifacts = path.join(root, '.test-artifacts', `fresh-${target}-${Date.now()}`);
   await fs.mkdir(artifacts, {recursive: true});
