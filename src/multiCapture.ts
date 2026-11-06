@@ -1,30 +1,38 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { CaptureManager } from './captureManager';
-import { TerminalManager } from './terminalManager';
+import { CaptureTerminal } from './captureTerminal';
 import { Submission, WindowBinding, delay } from './types';
 import { nextAvailable } from './storage';
 import { paginateOutput } from './pagination';
 
 export class MultiCapture {
-  constructor(private capture: Pick<CaptureManager, 'capture'>, private terminal: TerminalManager) {}
+  constructor(private capture: Pick<CaptureManager, 'capture'>, private terminal: CaptureTerminal) {}
   async capturePages(document: vscode.TextDocument, submission: Submission, binding: WindowBinding,
-    mode: 'code' | 'output' | 'both', token: vscode.CancellationToken): Promise<string[]> {
+    mode: 'code' | 'output' | 'both', token: vscode.CancellationToken, beforeCapture: () => void = () => {}): Promise<string[]> {
     const editor = await vscode.window.showTextDocument(document, { preserveFocus: false, preview: false });
     const originalSelection = editor.selection;
     const originalTop = editor.visibleRanges[0]?.start ?? new vscode.Position(0, 0);
     const images: string[] = [];
-    const baseImage = path.join(submission.folder, `${path.basename(document.fileName, path.extname(document.fileName))} 실행결과.png`);
-    const suffix = path.basename(submission.image).slice(path.basename(baseImage, '.png').length);
-    let nextNumber = Number(/^_(\d+)\.png$/.exec(suffix)?.[1] ?? 1) + 1;
+    const extension = path.extname(submission.image);
+    const baseImage = path.join(submission.folder, `${path.basename(document.fileName, path.extname(document.fileName))} 실행결과${extension}`);
+    const suffix = path.basename(submission.image, extension).slice(path.basename(baseImage, extension).length);
+    let nextNumber = Number(/^_(\d+)$/.exec(suffix)?.[1] ?? 1) + 1;
     let completed = false;
     const savePage = async () => {
       if (token.isCancellationRequested) { return false; }
+      beforeCapture();
       const image = images.length === 0 ? submission.image : await nextAvailable(baseImage, nextNumber++);
       await this.capture.capture(binding, image, images.length === 0 && submission.overwrite);
       images.push(image); return true;
     };
     try {
+      // Keep the first output page visible while scrolling code, instead of a clipped tail.
+      if (this.terminal.exists) {
+        this.terminal.show(); await delay(150);
+        const pages = paginateOutput(this.terminal.captureText, this.terminal.dimensions.columns, this.terminal.dimensions.rows);
+        await this.terminal.display(pages.length > 1 ? `[출력 1/${pages.length}]\n${pages[0]}` : pages[0]);
+      }
       if (mode === 'code' || mode === 'both') {
         await vscode.commands.executeCommand('editor.unfoldAll');
         let line = 0;
@@ -41,12 +49,14 @@ export class MultiCapture {
         }
       }
       if ((mode === 'output' || mode === 'both') && !token.isCancellationRequested) {
-        if (!this.terminal.exists || !this.terminal.text) { throw new Error('실행 결과 터미널이 없습니다. Run and Capture를 먼저 실행하세요.'); }
+        if (!this.terminal.exists || !this.terminal.captureText) { throw new Error('실행 결과 터미널이 없습니다. Run and Capture를 먼저 실행하세요.'); }
+        // Output pages keep the start of the source visible, even after code pagination.
+        editor.revealRange(new vscode.Range(0, 0, 0, 0), vscode.TextEditorRevealType.AtTop);
         this.terminal.show(); await delay(250);
-        const pages = paginateOutput(this.terminal.text, this.terminal.dimensions.columns, this.terminal.dimensions.rows);
+        const pages = paginateOutput(this.terminal.captureText, this.terminal.dimensions.columns, this.terminal.dimensions.rows);
         for (let index = 0; index < pages.length; index++) {
           if (token.isCancellationRequested) { break; }
-          this.terminal.display(`[출력 ${index + 1}/${pages.length}]\n${pages[index]}`);
+          await this.terminal.display(`[출력 ${index + 1}/${pages.length}]\n${pages[index]}`);
           if (!await savePage()) { break; }
         }
       }
@@ -56,7 +66,7 @@ export class MultiCapture {
     } catch (error) {
       throw new Error(`${String(error)}\n저장된 분할 이미지: ${images.length}장 (${path.dirname(submission.image)})`);
     } finally {
-      this.terminal.restore(); editor.selection = originalSelection;
+      await this.terminal.restore(); editor.selection = originalSelection;
       editor.revealRange(new vscode.Range(originalTop, originalTop), vscode.TextEditorRevealType.AtTop);
     }
   }

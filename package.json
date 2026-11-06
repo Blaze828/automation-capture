@@ -2,7 +2,7 @@
   "name": "js-assignment-autocapture",
   "displayName": "JS Assignment AutoCapture",
   "description": "Windows에서 JavaScript 과제를 실행하고 실제 VS Code 창을 제출용 PNG로 캡처합니다.",
-  "version": "0.1.0",
+  "version": "0.5.0",
   "publisher": "Blaze828",
   "license": "MIT",
   "repository": {
@@ -72,25 +72,41 @@
       {
         "command": "assignment.openOutputFolder",
         "title": "Assignment: Open Output Folder"
+      },
+      {
+        "command": "assignment.selectImageFormat",
+        "title": "Assignment: Select Image Format"
       }
     ],
     "keybindings": [
       {
         "command": "assignment.startRepl",
-        "key": "ctrl+alt+t"
+        "key": "ctrl+alt+e"
       },
       {
         "command": "assignment.captureRepl",
-        "key": "ctrl+alt+p"
+        "key": "ctrl+alt+d"
       },
       {
         "command": "assignment.runAndCapture",
-        "key": "ctrl+alt+r",
+        "key": "ctrl+alt+q",
         "when": "!inDebugRepl && !editorReadonly"
       },
       {
         "command": "assignment.captureAgain",
-        "key": "ctrl+alt+s"
+        "key": "ctrl+alt+w"
+      },
+      {
+        "command": "assignment.stopRun",
+        "key": "ctrl+alt+x"
+      },
+      {
+        "command": "assignment.captureMultiple",
+        "key": "ctrl+alt+a"
+      },
+      {
+        "command": "assignment.selectImageFormat",
+        "key": "ctrl+alt+f"
       }
     ],
     "menus": {
@@ -134,6 +150,24 @@
           "minimum": 200,
           "maximum": 10000,
           "description": "터미널과 편집기 화면 안정화 대기 시간(ms)."
+        },
+        "assignment.imageFormat": {
+          "type": "string",
+          "enum": [
+            "",
+            "png",
+            "jpg",
+            "webp"
+          ],
+          "default": "",
+          "scope": "window",
+          "enumDescriptions": [
+            "첫 캡처 때 형식 선택",
+            "PNG: 무손실 이미지",
+            "JPG: 고화질 압축 이미지",
+            "WebP: 무손실 압축 이미지"
+          ],
+          "description": "저장 이미지 형식. 빈 값이면 첫 캡처 때 선택합니다. Ctrl+Alt+F로 변경할 수 있습니다."
         }
       }
     }

@@ -8,6 +8,9 @@ import { FileManager } from '../../fileManager';
 import { RunManager } from '../../runManager';
 import { TerminalManager } from '../../terminalManager';
 import { MultiCapture } from '../../multiCapture';
+import { CaptureLayout } from '../../captureLayout';
+import { CmdTerminalManager } from '../../cmdTerminalManager';
+import { CmdRunManager } from '../../cmdRunManager';
 
 async function runApiTests(workspace: string, output: string): Promise<void> {
   const config = new ConfigManager();
@@ -34,9 +37,39 @@ async function runApiTests(workspace: string, output: string): Promise<void> {
     console.log('PASS API filename conflicts: overwrite/version/cancel preserve expected files');
     for (let i = 0; i < 2; i++) {
       const result = await runner.run(doc.fileName, async () => {});
-      assert.equal(result.code, 0); assert.match(terminal.text, /안녕하세요/); assert.match(terminal.text, /실행 완료/);
+      assert.equal(result.code, 0); assert.match(terminal.text, /안녕하세요/); assert.doesNotMatch(terminal.text, /실행 완료/);
     }
     console.log('PASS API real Pseudoterminal Unicode output and repeated execution');
+    const layout = new CaptureLayout();
+    const fits = await layout.fit(doc, terminal);
+    assert.equal(fits.output, true);
+    const shortRows = terminal.dimensions.rows;
+    terminal.write(Array.from({length: 24}, (_, i) => `height ${i}`).join('\n'));
+    await layout.fit(doc, terminal);
+    assert.equal(terminal.dimensions.rows, shortRows, 'layout does not resize without the one-shot backend');
+    await layout.replOnly(doc, () => terminal.show(), async () => {
+      assert.equal(terminal.dimensions.rows, shortRows, 'REPL-only capture keeps the panel height');
+    });
+    assert.ok((await layout.showCode(doc)).visibleRanges.length > 0, 'file tab is restored after REPL capture');
+    console.log('PASS API output priority layout and terminal-only capture/restoration');
+
+    const repeatedSource = path.join(workspace, '4장', '반복.js');
+    await fs.writeFile(repeatedSource, "let i=0; setInterval(()=>console.log('반복', i++), 1)");
+    const repeatedRunner = new RunManager(terminal, {nodePath: config.nodePath, timeoutMs: 800}, async () => {
+      throw new Error('repeating output must stop without a prompt');
+    });
+    try {
+      const result = await repeatedRunner.run(repeatedSource, async () => {});
+      assert.equal(result.stopped, true); assert.match(terminal.captureText, /출력 일부만/);
+      assert.ok(terminal.captureText.length < terminal.text.length);
+      await layout.fit(doc, terminal); terminal.fitRepresentative();
+      assert.ok(terminal.estimatedRows <= terminal.dimensions.rows - 2);
+    } finally { repeatedRunner.dispose(); }
+    const finiteSource = path.join(workspace, '4장', '유한 반복.js');
+    await fs.writeFile(finiteSource, "for(let i=0;i<100;i++) console.log('유한 반복', i)");
+    assert.equal((await runner.run(finiteSource, async () => {})).stopped, false);
+    assert.equal(terminal.captureText, terminal.text, 'completed finite loops retain all output');
+    console.log('PASS API timed repetitive output is compact; completed finite loops retain all output');
     const timedSource = path.join(workspace, '4장', '타임아웃.js');
     await fs.writeFile(timedSource, "setTimeout(() => console.log('끝'), 50)");
     const timedRunner = new RunManager(terminal, {nodePath: config.nodePath, timeoutMs: 10}, async () => '수동 캡처');
@@ -91,12 +124,59 @@ async function runApiTests(workspace: string, output: string): Promise<void> {
   } finally { runner.dispose(); terminal.dispose(); }
 }
 
+async function runCmdApiTests(workspace: string, extensionPath: string): Promise<void> {
+  const config = new ConfigManager();
+  const terminal = new CmdTerminalManager(extensionPath);
+  const runner = new CmdRunManager(terminal, {nodePath: config.nodePath, timeoutMs: 1000});
+  try {
+    const before = vscode.window.terminals.length;
+    const source = path.join(workspace, '4장', '131.js');
+    const doc = await vscode.workspace.openTextDocument(source); await vscode.window.showTextDocument(doc);
+    const result = await runner.run(source, async () => {});
+    assert.equal(result.code, 0); assert.match(terminal.text, /안녕하세요/);
+    assert.doesNotMatch(terminal.text, /\[실행 완료|종료 코드:/);
+    assert.equal(vscode.window.activeTerminal?.name, 'cmd');
+    const layout = new CaptureLayout();
+    assert.equal((await layout.fit(doc, terminal)).output, true);
+    const rows = terminal.dimensions.rows;
+    const submission = {source, folder: workspace, code: source, image: path.join(workspace, 'CMD 결과.webp'), overwrite: false};
+    const cancel = new vscode.CancellationTokenSource();
+    try {
+      let pages = 0;
+      const multi = new MultiCapture({capture: async () => { pages++; }}, terminal);
+      await multi.capturePages(doc, submission, {hwnd: 0, pid: 0}, 'output', cancel.token);
+      assert.equal(pages, 1);
+    } finally { cancel.dispose(); }
+    await terminal.finishCapture();
+    assert.ok(terminal.exists, 'CMD stays alive for ordinary commands after capture');
+    const firstCmd = vscode.window.activeTerminal;
+    const cmdPid = await firstCmd?.processId;
+    const secondSource = path.join(workspace, '두번째 장', '재사용.js');
+    await fs.mkdir(path.dirname(secondSource), {recursive: true});
+    await fs.writeFile(secondSource, "console.log('두번째 결과 ONLY_SECOND'); console.log(process.cwd())");
+    assert.equal((await runner.run(secondSource, async () => {})).code, 0);
+    assert.equal(vscode.window.terminals.length, before + 1, 'a second file does not add another CMD tab');
+    assert.equal(vscode.window.activeTerminal, firstCmd);
+    assert.equal(await vscode.window.activeTerminal?.processId, cmdPid);
+    assert.match(terminal.text, /ONLY_SECOND/); assert.doesNotMatch(terminal.text, /안녕하세요/);
+    assert.ok(terminal.text.startsWith(path.dirname(secondSource) + '>'));
+    await terminal.finishCapture();
+    await terminal.ensureReplay();
+    assert.equal(vscode.window.activeTerminal, firstCmd, 'manual replay also reuses the same CMD');
+    assert.ok((await terminal.refresh())?.done, 'replay does not execute the JS again');
+    assert.ok(terminal.dimensions.rows > 0 && rows > 0);
+    console.log('PASS API real CMD run/output/dimensions/replay; no completion banner; prompt stays alive');
+  } finally { await terminal.finishCapture(); runner.dispose(); terminal.dispose(); }
+}
+
 export async function run(): Promise<void> {
   const workspace = process.env.AUTOCAPTURE_WORKSPACE!;
   const output = process.env.AUTOCAPTURE_OUTPUT!;
   const extension = vscode.extensions.getExtension('Blaze828.js-assignment-autocapture');
   assert.ok(extension, 'extension is registered'); await extension.activate();
-  if (process.env.AUTOCAPTURE_API_ONLY === '1') { await runApiTests(workspace, output); return; }
+  if (process.env.AUTOCAPTURE_API_ONLY === '1') {
+    await runApiTests(workspace, output); await runCmdApiTests(workspace, extension.extensionPath); return;
+  }
   await vscode.commands.executeCommand('workbench.action.closeSidebar');
   await delay(2500);
   for (let i = 0; i < 120 && !vscode.window.state.focused; i++) { await delay(500); }
@@ -117,4 +197,50 @@ export async function run(): Promise<void> {
   await vscode.commands.executeCommand('assignment.captureAgain');
   assert.ok((await fs.stat(again)).size > 1000);
   console.log('PASS capture again');
+
+  const scenarios = [
+    {name: '자동 높이', code: "for(let i=1;i<=18;i++) console.log('높이 조절', i)", multiple: false},
+    {name: '자동 출력 분할', code: "for(let i=1;i<=90;i++) console.log('출력 페이지', i)", multiple: true},
+    {name: '긴 코드 짧은 출력', code: Array.from({length: 160}, (_, i) => `// 코드 페이지 ${i + 1}`).join('\n') + "\nconsole.log('마지막 줄 확인')", multiple: false},
+    {name: '자동 반복 요약', code: "let i=0;setInterval(()=>console.log('반복 출력',i++),1)", multiple: false}
+  ];
+  await vscode.workspace.getConfiguration('assignment').update('timeoutSeconds', 1, vscode.ConfigurationTarget.Global);
+  for (const scenario of scenarios) {
+    const source = path.join(workspace, '4장', `${scenario.name}.js`);
+    await fs.writeFile(source, scenario.code);
+    const doc = await vscode.workspace.openTextDocument(source); await vscode.window.showTextDocument(doc);
+    const result = await vscode.commands.executeCommand<{ok: boolean; error: string}>('assignment.runAndCapture');
+    assert.notEqual(result?.ok, false, result?.error);
+    const images = (await fs.readdir(path.join(output, '4장'))).filter(name => name.startsWith(`${scenario.name} 실행결과`) && name.endsWith('.png'));
+    assert.ok(scenario.multiple ? images.length > 1 : images.length === 1, `${scenario.name}: ${images.length} images`);
+    for (const image of images) { assert.ok((await fs.stat(path.join(output, '4장', image))).size > 1000); }
+    console.log(`PASS real automatic capture: ${scenario.name} (${images.length} images)`);
+  }
+  await vscode.commands.executeCommand('assignment.startRepl');
+  const repl = vscode.window.terminals.find(t => t.name.startsWith('Assignment REPL'));
+  assert.ok(repl); await delay(800); repl.sendText("console.log('REPL 출력 전용 확인', 1 + 2)"); await delay(500);
+  const replResult = await vscode.commands.executeCommand<{ok: boolean; error: string}>('assignment.captureRepl');
+  assert.notEqual(replResult?.ok, false, replResult?.error);
+  assert.ok((await fs.stat(path.join(output, '4장', '자동 반복 요약 REPL.png'))).size > 1000);
+  assert.equal(repl.exitStatus, undefined);
+  console.log('PASS real REPL terminal-only capture; session remains alive');
+
+  if (process.env.AUTOCAPTURE_SAMPLE) {
+    const doc = await vscode.workspace.openTextDocument(path.join(workspace, '6장', 'test.js'));
+    await vscode.window.showTextDocument(doc);
+    const result = await vscode.commands.executeCommand<{ok: boolean; error: string}>('assignment.runAndCapture');
+    assert.notEqual(result?.ok, false, result?.error);
+    const images = (await fs.readdir(path.join(output, '6장'))).filter(name => name.endsWith('.png'));
+    assert.equal(images.length, 1, 'actual chapter 6 sample needs one output screenshot');
+    console.log('PASS real 6장/test.js: one output screenshot despite long source');
+    for (const format of ['jpg', 'webp']) {
+      await vscode.workspace.getConfiguration('assignment').update('imageFormat', format, vscode.ConfigurationTarget.Workspace);
+      const again = await vscode.commands.executeCommand<{ok: boolean; error: string}>('assignment.captureAgain');
+      assert.notEqual(again?.ok, false, again?.error);
+      const image = await fs.readFile(path.join(output, '6장', `test 실행결과_02.${format}`));
+      if (format === 'jpg') { assert.equal(image.subarray(0, 3).toString('hex'), 'ffd8ff'); }
+      else { assert.equal(image.subarray(8, 12).toString(), 'WEBP'); }
+      console.log(`PASS real ${format} capture with matching file signature`);
+    }
+  }
 }

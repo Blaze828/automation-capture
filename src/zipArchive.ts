@@ -6,9 +6,9 @@ import { publishFile } from './storage';
 
 export async function createChapterZip(folder: string, destination: string, overwrite: boolean): Promise<number> {
   const entries = (await fs.readdir(folder, { withFileTypes: true }))
-    .filter(entry => entry.isFile() && /\.(js|png)$/i.test(entry.name))
+    .filter(entry => entry.isFile() && /\.(js|png|jpe?g|webp)$/i.test(entry.name))
     .sort((a, b) => a.name.localeCompare(b.name));
-  if (!entries.length) { throw new Error('선택한 장에 JS 또는 PNG 파일이 없습니다.'); }
+  if (!entries.length) { throw new Error('선택한 장에 JS 또는 캡처 이미지 파일이 없습니다.'); }
   const { ZipArchive } = await import('archiver');
   const temp = path.join(path.dirname(destination), `.${randomUUID()}.zip.tmp`);
   const archive = new ZipArchive({ zlib: { level: 9 } });

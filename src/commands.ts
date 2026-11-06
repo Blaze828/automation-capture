@@ -2,25 +2,27 @@ import * as vscode from 'vscode';
 import { ConfigManager } from './configManager';
 import { FileManager } from './fileManager';
 import { CaptureManager } from './captureManager';
-import { TerminalManager } from './terminalManager';
-import { RunManager } from './runManager';
+import { CmdTerminalManager } from './cmdTerminalManager';
+import { CmdRunManager } from './cmdRunManager';
 import { Cancelled, errorMessage, Submission } from './types';
 import { ReplManager } from './replManager';
 import { ZipManager } from './zipManager';
 import { MultiCapture } from './multiCapture';
 import { nextAvailable } from './storage';
+import { CaptureLayout } from './captureLayout';
 
 export function registerCommands(context: vscode.ExtensionContext): void {
   const config = new ConfigManager();
   const files = new FileManager(config);
   const capture = new CaptureManager(context, config);
-  const terminal = new TerminalManager();
-  const runner = new RunManager(terminal, config);
+  const terminal = new CmdTerminalManager(context.extensionPath, () => config.pythonPath);
+  const runner = new CmdRunManager(terminal, config);
   const repl = new ReplManager(config);
   const zip = new ZipManager(config);
   const multi = new MultiCapture(capture, terminal);
+  const layout = new CaptureLayout();
   const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-  status.text = '$(device-camera) Assignment'; status.command = 'assignment.runAndCapture'; status.tooltip = 'JavaScript 실행 및 실제 창 캡처 (Ctrl+Alt+R)'; status.show();
+  status.text = '$(device-camera) Assignment'; status.command = 'assignment.runAndCapture'; status.tooltip = 'JavaScript 실행 및 자동 맞춤 캡처 (Ctrl+Alt+Q)'; status.show();
   let busy = false;
   let latest: Submission | undefined;
   context.subscriptions.push(terminal, runner, repl, status, vscode.window.onDidChangeActiveTextEditor(editor => files.remember(editor)));
@@ -49,30 +51,47 @@ export function registerCommands(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('assignment.runAndCapture', guard(async () => {
       const document = await files.document(false);
       const submission = await files.prepare(document, 'run');
-      await vscode.window.showTextDocument(document, { preview: false });
+      await layout.showCode(document);
       const binding = await capture.bind(document);
       // Copy the exact saved source before running it; never execute a submission copy.
       await files.copyCode(submission); latest = submission;
       const executedVersion = document.version;
       let manualSaved = false;
-      const result = await runner.run(document.fileName, async () => {
-        if (document.version !== executedVersion) { throw new Error('실행 중 원본 코드가 변경되었습니다. 다시 실행한 뒤 캡처하세요.'); }
-        await capture.capture(binding, submission.image, submission.overwrite); manualSaved = true; notify(submission, ' (실행 중 수동 캡처)');
-      });
-      if (document.version !== executedVersion) { throw new Error('실행 중 원본 코드가 변경되어 자동 캡처를 중단했습니다. 원본을 다시 실행하세요. 실행 직전 JS 복사본은 유지됩니다.'); }
-      if (manualSaved) { submission.image = await nextAvailable(submission.image); submission.overwrite = false; }
-      await vscode.window.showTextDocument(document, { preserveFocus: true, preview: false }); terminal.show();
-      try { await capture.capture(binding, submission.image, submission.overwrite); }
-      catch (error) { throw new Error(`JS 파일은 저장되었습니다: ${submission.code}\n${errorMessage(error)}\nCapture Again으로 재시도하세요.`); }
-      const editor = vscode.window.visibleTextEditors.find(e => e.document === document);
-      const visible = editor?.visibleRanges;
-      const incomplete = !visible?.some(r => r.start.line === 0 && r.end.line >= document.lineCount - 1);
-      notify(submission, result.code !== 0 ? ' (실행 오류/중단 화면)' : '');
-      if (incomplete || terminal.estimatedRows > terminal.dimensions.rows) {
-        void vscode.window.showWarningMessage('코드 또는 출력이 화면보다 깁니다. 현재 보이는 부분만 저장했습니다.', '분할 캡처', '직접 조절').then(action => {
-          if (action === '분할 캡처') { void vscode.commands.executeCommand('assignment.captureMultiple'); }
+      try {
+        const result = await runner.run(document.fileName, async () => {
+          if (document.version !== executedVersion) { throw new Error('실행 중 원본 코드가 변경되었습니다. 다시 실행한 뒤 캡처하세요.'); }
+          await capture.capture(binding, submission.image, submission.overwrite); manualSaved = true; notify(submission, ' (실행 중 수동 캡처)');
         });
-      }
+        if (document.version !== executedVersion) { throw new Error('실행 중 원본 코드가 변경되어 자동 캡처를 중단했습니다. 원본을 다시 실행하세요. 실행 직전 JS 복사본은 유지됩니다.'); }
+        if (manualSaved) { submission.image = await nextAvailable(submission.image); submission.overwrite = false; }
+        const unchanged = () => {
+          if (document.version !== executedVersion) { throw new Error('캡처 중 원본 코드가 변경되었습니다. 다시 실행하세요. 완료된 이미지는 유지됩니다.'); }
+        };
+        let count = 1;
+        try {
+          const fits = await layout.fit(document, terminal,
+            (outputRows, currentRows) => capture.growTerminal(binding, outputRows, currentRows));
+          await terminal.fitRepresentative();
+          await vscode.commands.executeCommand('workbench.action.terminal.scrollToTop');
+          unchanged();
+          if (terminal.wasTruncated && !result.stopped) {
+            await capture.capture(binding, submission.image, submission.overwrite);
+            throw new Error('출력이 보관 한도(1,000,000자)를 초과했습니다. 현재 화면만 저장했으며 전체 출력은 캡처되지 않았습니다.');
+          }
+          if (fits.output || result.stopped) {
+            // The real CMD already contains the program's output and native input echo.
+            await capture.capture(binding, submission.image, submission.overwrite);
+          } else {
+            // The JS file is submitted separately. Only output can require automatic pages.
+            const images = await vscode.window.withProgress({ location: vscode.ProgressLocation.Window, title: '자동 분할 캡처 중', cancellable: true },
+              (_progress, token) => multi.capturePages(document, submission, binding, 'output', token, unchanged));
+            count = images.length;
+          }
+          unchanged();
+        }
+        catch (error) { throw new Error(`JS 파일은 저장되었습니다: ${submission.code}\n${errorMessage(error)}\nCapture Again으로 재시도하세요.`); }
+        notify(submission, ` (${count}장${result.stopped ? ' · 중단된 실행의 대표 출력' : result.code !== 0 ? ' · 실행 오류 화면' : ''})`);
+      } finally { await terminal.finishCapture(); }
     })),
     vscode.commands.registerCommand('assignment.startRepl', guard(async () => {
       const document = await files.document(true); await repl.start(document);
@@ -80,7 +99,11 @@ export function registerCommands(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('assignment.captureRepl', guard(async () => {
       const document = await files.document(true);
       const submission = await files.prepare(document, 'repl');
-      repl.show(); await captureCurrent(document, submission, false); notify(submission, ' (REPL 세션 유지)');
+      await layout.showCode(document);
+      const binding = await capture.bind(document);
+      await files.copyCode(submission); latest = submission;
+      await layout.replOnly(document, () => repl.show(), () => capture.capture(binding, submission.image, submission.overwrite, true));
+      notify(submission, ' (REPL 터미널 전용 · 세션 유지)');
     })),
     vscode.commands.registerCommand('assignment.captureMultiple', guard(async () => {
       const document = await files.document(true);
@@ -96,9 +119,12 @@ export function registerCommands(context: vscode.ExtensionContext): void {
       await vscode.window.showTextDocument(document, { preview: false });
       const binding = await capture.bind(document);
       await files.copyCode(submission); latest = submission;
-      const images = await vscode.window.withProgress({ location: vscode.ProgressLocation.Window, title: '분할 캡처 중', cancellable: true },
-        (_progress, token) => multi.capturePages(document, submission, binding, choice.mode, token));
-      void vscode.window.showInformationMessage(`${images.length}장 분할 캡처 저장 완료: ${submission.folder}`);
+      if (terminal.text) { await terminal.ensureReplay(); }
+      try {
+        const images = await vscode.window.withProgress({ location: vscode.ProgressLocation.Window, title: '분할 캡처 중', cancellable: true },
+          (_progress, token) => multi.capturePages(document, submission, binding, choice.mode, token));
+        void vscode.window.showInformationMessage(`${images.length}장 분할 캡처 저장 완료: ${submission.folder}`);
+      } finally { await terminal.finishCapture(); }
     })),
     vscode.commands.registerCommand('assignment.exportChapterZip', guard(async () => {
       const destination = await zip.export();
@@ -113,6 +139,7 @@ export function registerCommands(context: vscode.ExtensionContext): void {
     })),
     vscode.commands.registerCommand('assignment.stopRun', () => runner.process.stop()),
     vscode.commands.registerCommand('assignment.selectOutputFolder', guard(async () => { await config.selectOutputFolder(); })),
+    vscode.commands.registerCommand('assignment.selectImageFormat', guard(async () => { await config.selectImageFormat(); })),
     vscode.commands.registerCommand('assignment.openOutputFolder', guard(async () => { await openFolder(latest?.folder ?? await config.outputFolder()); }))
   );
 }

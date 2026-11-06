@@ -13,6 +13,10 @@ const { createWriteStream } = require('node:fs');
   await fs.mkdir(path.join(profile, 'User'), { recursive: true });
   await fs.mkdir(path.join(workspace, '.vscode'), { recursive: true });
   await fs.cp(path.join(root, 'examples', '4장'), path.join(workspace, '4장'), { recursive: true });
+  if (process.env.AUTOCAPTURE_SAMPLE) {
+    await fs.mkdir(path.join(workspace, '6장'), { recursive: true });
+    await fs.copyFile(process.env.AUTOCAPTURE_SAMPLE, path.join(workspace, '6장', 'test.js'));
+  }
   const settings = {
     'security.workspace.trust.enabled': false,
     'window.title': '${activeEditorShort} - ${rootName} - ${appName}',
@@ -23,7 +27,8 @@ const { createWriteStream } = require('node:fs');
     'assignment.outputFolder': output,
     'assignment.nodePath': process.execPath,
     'assignment.pythonPath': process.env.AUTOCAPTURE_PYTHON || 'python',
-    'assignment.captureDelayMs': 1200
+    'assignment.captureDelayMs': 1200,
+    'assignment.imageFormat': 'png'
   };
   await fs.writeFile(path.join(profile, 'User', 'settings.json'), JSON.stringify(settings, null, 2));
   console.log('Integration artifacts:', artifacts);

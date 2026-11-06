@@ -14,6 +14,21 @@ def is_cursor_overlay(class_name, extended_style):
     return class_name == "CodexComputerUseCursorOverlay" and extended_style & required == required
 
 
+def save_capture(rgb, size, output, image_format):
+    if image_format == "png":
+        import mss.tools
+        mss.tools.to_png(rgb, size, output=output)
+    else:
+        from PIL import Image
+        image = Image.frombytes("RGB", size, rgb)
+        if image_format == "jpg":
+            image.save(output, format="JPEG", quality=95, subsampling=0)
+        elif image_format == "webp":
+            image.save(output, format="WEBP", lossless=True)
+        else:
+            raise ValueError("지원하지 않는 이미지 형식입니다.")
+
+
 def main():
     if sys.platform != "win32":
         raise RuntimeError("Windows 10/11 전용 캡처입니다.")
@@ -34,6 +49,8 @@ def main():
     parser.add_argument("--hwnd", type=int)
     parser.add_argument("--pid", type=int)
     parser.add_argument("--output")
+    parser.add_argument("--format", choices=["png", "jpg", "webp"], default="png")
+    parser.add_argument("--terminal-only", action="store_true")
     args = parser.parse_args()
     user32.GetForegroundWindow.restype = wintypes.HWND
     user32.GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
@@ -93,7 +110,7 @@ def main():
     if pid != args.pid or user32.GetForegroundWindow() != hwnd:
         raise RuntimeError("대상 VS Code 창에서 다른 창으로 전환되었습니다. 다시 캡처하세요.")
     if not args.output:
-        raise RuntimeError("PNG 출력 경로가 필요합니다.")
+        raise RuntimeError("이미지 출력 경로가 필요합니다.")
     left, top, right, bottom = bounds(hwnd)
     if right <= left or bottom <= top:
         raise RuntimeError("유효하지 않은 창 크기입니다.")
@@ -137,15 +154,24 @@ def main():
             raise RuntimeError("VS Code 창 위에 다른 창 또는 대화상자가 겹쳐 있습니다. 닫은 뒤 다시 캡처하세요.")
 
     ensure_unobscured()
+    capture_bounds = (left, top, right, bottom)
+    if args.terminal_only:
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), "runtime"))
+        from terminal_layout import measure_terminal
+        capture_bounds = measure_terminal(hwnd)["screen"]
+        a, b, c, d = capture_bounds
+        if a < left or b < top or c > right or d > bottom or c <= a or d <= b:
+            raise RuntimeError("터미널 캡처 영역을 확인하지 못했습니다.")
     with mss.mss() as screen:
         virtual = screen.monitors[0]
         if left < virtual["left"] or top < virtual["top"] or right > virtual["left"] + virtual["width"] or bottom > virtual["top"] + virtual["height"]:
             raise RuntimeError("VS Code 창 일부가 모니터 밖에 있습니다. 창을 화면 안으로 옮기세요.")
-        shot = screen.grab({"left": left, "top": top, "width": right - left, "height": bottom - top})
+        a, b, c, d = capture_bounds
+        shot = screen.grab({"left": a, "top": b, "width": c - a, "height": d - b})
         if user32.GetForegroundWindow() != hwnd or identity(hwnd) != pid or bounds(hwnd) != (left, top, right, bottom):
             raise RuntimeError("캡처 도중 창이 이동하거나 포커스가 변경되었습니다.")
         ensure_unobscured()
-        mss.tools.to_png(shot.rgb, shot.size, output=args.output)
+        save_capture(shot.rgb, shot.size, args.output, args.format)
     print(json.dumps({"output": args.output, "width": shot.width, "height": shot.height}, ensure_ascii=False))
 
 

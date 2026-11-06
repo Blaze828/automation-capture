@@ -19,8 +19,12 @@ export class RunManager implements vscode.Disposable {
     await this.terminal.create();
     this.terminal.write(`> ${JSON.stringify(this.config.nodePath)} ${JSON.stringify(source)}\n\n`);
     let activeManualCapture: Promise<void> | undefined;
+    let repeatedAtTimeout = false;
     const result = await this.process.run({ nodePath: this.config.nodePath, source, timeoutMs: this.config.timeoutMs,
       onOutput: text => this.terminal.write(text), onTimeout: async () => {
+        // Do not mistake a successfully completed repetitive finite exercise for a loop.
+        // Only a still-running process at the configured timeout is eligible.
+        if (this.terminal.repetitive) { repeatedAtTimeout = true; return 'stop'; }
         const action = await this.timeoutDecision();
         // A notification can outlive the program. Never start a stale manual capture.
         if (!this.process.running) { return 'manual'; }
@@ -34,7 +38,10 @@ export class RunManager implements vscode.Disposable {
     // Finish a capture already started before the process exited, so the caller
     // can allocate a new final image instead of racing for the same PNG path.
     if (activeManualCapture) { await activeManualCapture.catch(() => {}); }
-    this.terminal.write(`\n[${result.stopped ? '실행 중단' : result.code === 0 ? '실행 완료' : '실행 오류'} · 종료 코드: ${result.code ?? result.signal ?? '없음'}]\n`);
+    const status = `[${result.stopped ? '실행 중단' : result.code === 0 ? '실행 완료' : '실행 오류'}${repeatedAtTimeout ? ' · 반복 출력 제한 시간 초과' : ''} · 종료 코드: ${result.code ?? result.signal ?? '없음'}]`;
+    // Keep successful program output free of extension-generated completion banners.
+    if (result.code !== 0 || result.stopped) { this.terminal.write(`\n${status}\n`); }
+    if (result.stopped) { this.terminal.useRepresentative(status); }
     return result;
   }
   dispose(): void { this.process.dispose(); }

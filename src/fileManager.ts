@@ -42,7 +42,7 @@ export class FileManager {
     await fs.mkdir(folder, { recursive: true });
     const base = path.basename(source, path.extname(source));
     const code = path.join(folder, `${base}.js`);
-    let image = path.join(folder, `${base} ${kind === 'repl' ? 'REPL' : '실행결과'}.png`);
+    let image = path.join(folder, `${base} ${kind === 'repl' ? 'REPL' : '실행결과'}.${await this.config.imageFormat()}`);
     if (again) { let n = 2; const initial = image; do { image = versioned(initial, n++); } while (await exists(image)); }
     const sameSource = path.resolve(code).toLowerCase() === path.resolve(source).toLowerCase();
     const unchanged = sameSource || (await exists(code) && (await fs.readFile(code)).equals(await fs.readFile(source)));
