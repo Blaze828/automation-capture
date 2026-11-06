@@ -59,16 +59,21 @@ jobs:
         env:
           AUTOCAPTURE_API_ONLY: '1'
         run: npm run test:integration
-      - name: Record Mac screen recording and accessibility availability
-        if: always() && runner.os == 'macOS'
-        run: python scripts/macos_permissions.py
       - name: Mac real window, output pagination and REPL capture
         if: ${{ !cancelled() && runner.os == 'macOS' && steps.vscode.outcome == 'success' }}
         timeout-minutes: 6
         env:
           AUTOCAPTURE_CAPTURE_DEBUG: '1'
           AUTOCAPTURE_LAYOUT_DEBUG: ${{ github.workspace }}/.test-artifacts/macos-layout.json
-        run: npm run test:integration
+        shell: bash
+        run: |
+          python scripts/macos_ci_dialogs.py &
+          watcher=$!
+          trap 'kill "$watcher" 2>/dev/null || true' EXIT
+          npm run test:integration
+      - name: Record Mac permissions and GUI verification receipt
+        if: always() && runner.os == 'macOS'
+        run: python scripts/macos_permissions.py
       - name: Capture Mac desktop on integration failure
         if: failure() && runner.os == 'macOS'
         timeout-minutes: 1
@@ -86,3 +91,4 @@ jobs:
             .test-artifacts/**/*.png
             .test-artifacts/macos-permissions.json
             .test-artifacts/macos-layout.json
+            .test-artifacts/**/gui-verification.json

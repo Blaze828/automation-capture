@@ -77,13 +77,15 @@ def measure_terminal(window_id, pid):
         raise LayoutUnavailable('대상 VS Code 창과 접근성 창의 위치가 일치하지 않습니다.')
     focused = attr(app, 'AXFocusedUIElement')
     focus = bounds(focused) if focused is not None else None
-    stack, nodes, visited = [root], [], set()
+    stack, nodes, visited = [root], [], {}
     while stack:
         element = stack.pop()
         identity = objc.pyobjc_id(element)
         if identity in visited:
             continue
-        visited.add(identity)
+        # Keep CF proxies alive while walking: a released proxy's native address
+        # can be reused for a different AX element and must not count as visited.
+        visited[identity] = element
         if len(visited) > 12000:
             raise LayoutUnavailable('접근성 요소가 너무 많아 터미널 영역을 확인하지 못했습니다.')
         area = bounds(element)
@@ -92,6 +94,7 @@ def measure_terminal(window_id, pid):
             if isinstance(classes, str):
                 classes = classes.split()
             nodes.append({'classes': list(classes), 'bounds': area,
+                          'role': str(attr(element, 'AXRole') or ''),
                           'identifier': str(attr(element, 'AXDOMIdentifier') or attr(element, 'AXIdentifier') or '')})
         stack.extend(attr(element, 'AXChildren') or [])
     verify_window(window_id, pid)

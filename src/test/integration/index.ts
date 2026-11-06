@@ -204,6 +204,16 @@ async function runScenarios(): Promise<void> {
   await vscode.commands.executeCommand('assignment.captureAgain');
   assert.ok((await fs.stat(again)).size > 1000);
   console.log('PASS capture again');
+  for (const format of ['jpg', 'webp']) {
+    await vscode.workspace.getConfiguration('assignment').update('imageFormat', format, vscode.ConfigurationTarget.Global);
+    const result = await vscode.commands.executeCommand<{ok: boolean; error: string}>('assignment.captureAgain');
+    assert.notEqual(result?.ok, false, result?.error);
+    const bytes = await fs.readFile(path.join(output, '4장', `오류 예제 실행결과_02.${format}`));
+    if (format === 'jpg') { assert.equal(bytes.subarray(0, 3).toString('hex'), 'ffd8ff'); }
+    else { assert.equal(bytes.subarray(8, 12).toString(), 'WEBP'); }
+    console.log(`PASS real ${format} capture with matching file signature`);
+  }
+  await vscode.workspace.getConfiguration('assignment').update('imageFormat', 'png', vscode.ConfigurationTarget.Global);
 
   const scenarios = [
     {name: '자동 높이', code: "for(let i=1;i<=18;i++) console.log('높이 조절', i)", multiple: false},
@@ -250,6 +260,13 @@ async function runScenarios(): Promise<void> {
       console.log(`PASS real ${format} capture with matching file signature`);
     }
   }
+  await fs.writeFile(path.join(path.dirname(workspace), 'gui-verification.json'), JSON.stringify({
+    platform: process.platform, architecture: process.arch, vscode: vscode.version,
+    completedAt: new Date().toISOString(), formats: ['png', 'jpg', 'webp'],
+    scenarios: ['normal JS', 'runtime error', 'capture again', 'automatic height', 'long output pages',
+      'long source with short output', 'repeating output', 'REPL terminal-only'],
+    guiCaptureVerified: true
+  }, null, 2));
 }
 
 export async function run(): Promise<void> {
