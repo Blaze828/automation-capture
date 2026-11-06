@@ -11,7 +11,7 @@ import { MultiCapture } from '../../multiCapture';
 import { CaptureLayout } from '../../captureLayout';
 import { CmdTerminalManager } from '../../cmdTerminalManager';
 import { CmdRunManager } from '../../cmdRunManager';
-import { execFileSync } from 'child_process';
+import { execFileSync, spawn } from 'child_process';
 import { prepareBundledRuntime } from '../../bundledRuntime';
 
 async function acceptPicker(command: string, next = 0): Promise<unknown> {
@@ -23,24 +23,31 @@ async function acceptPicker(command: string, next = 0): Promise<unknown> {
 }
 
 async function freshSetup(extensionPath: string, output: string): Promise<void> {
-  const settings = vscode.workspace.getConfiguration('assignment');
-  assert.equal(settings.get('outputFolder'), '', 'first install has no output folder');
-  assert.equal(settings.get('imageFormat'), '', 'first install has no image format');
+  const config = new ConfigManager();
+  assert.equal(config.settings.get('outputFolder'), '', 'first install has no output folder');
+  assert.equal(config.settings.get('imageFormat'), '', 'first install has no image format');
   const folder = path.dirname(process.env.AUTOCAPTURE_WORKSPACE!);
   const first = output + ' 첫번째';
   await fs.mkdir(first, {recursive: true}); await fs.mkdir(output, {recursive: true});
   const waitForFolder = async (expected: string) => {
     const deadline = Date.now() + 300000;
-    while (Date.now() < deadline && settings.get('outputFolder') !== expected) { await delay(250); }
-    assert.equal(settings.get('outputFolder'), expected);
+    while (Date.now() < deadline && config.settings.get('outputFolder') !== expected) { await delay(250); }
+    assert.equal(config.settings.get('outputFolder'), expected);
   };
   if (process.platform === 'darwin') {
     const pid = (await fs.readFile(process.env.AUTOCAPTURE_MAIN_PID_FILE!, 'utf8')).trim();
-    for (const destination of [first, output, '--cancel']) {
-      execFileSync(new ConfigManager().pythonPath, ['-E', '-s', '-X', 'utf8',
-        path.resolve(__dirname, '../../../scripts/macos_first_setup.py'), pid, destination], {timeout: 30000, stdio: 'inherit'});
-      if (destination !== '--cancel') { await waitForFolder(destination); }
-    }
+    const watcher = spawn(config.pythonPath, ['-E', '-s', '-X', 'utf8', path.resolve(__dirname, '../../../scripts/macos_ci_dialogs.py')], {stdio: 'ignore'});
+    try {
+      await delay(1500);
+      for (const destination of [first, output, '--cancel']) {
+        try {
+          const log = execFileSync(config.pythonPath, ['-E', '-s', '-X', 'utf8',
+            path.resolve(__dirname, '../../../scripts/macos_first_setup.py'), pid, destination], {timeout: 30000, encoding: 'utf8'});
+          console.log(log);
+        } catch (error) { console.error(String((error as {stderr?: unknown}).stderr)); throw error; }
+        if (destination !== '--cancel') { await waitForFolder(destination); }
+      }
+    } finally { watcher.kill(); }
   } else if (process.env.AUTOCAPTURE_MANUAL_SETUP === '1') {
     for (const [stage, destination] of [['select-folder', first], ['change-folder', output]]) {
       await fs.writeFile(path.join(folder, 'manual-step.json'), JSON.stringify({stage, destination}));
@@ -54,12 +61,12 @@ async function freshSetup(extensionPath: string, output: string): Promise<void> 
   } else {
     // Hosted Windows has no local computer-use helper. Exercise the actual
     // installation here; its native picker is checked in the local fresh profile.
-    await settings.update('outputFolder', output, vscode.ConfigurationTarget.Workspace);
+    await config.settings.update('outputFolder', output, vscode.ConfigurationTarget.Workspace);
   }
-  assert.equal(settings.get('outputFolder'), output, 'cancel preserves the selected folder');
+  assert.equal(config.settings.get('outputFolder'), output, 'cancel preserves the selected folder');
   const result = await acceptPicker('assignment.selectImageFormat');
   assert.notEqual((result as {ok?: boolean})?.ok, false);
-  assert.equal(settings.get('imageFormat'), 'png', 'first format picker selected PNG');
+  assert.equal(config.settings.get('imageFormat'), 'png', 'first format picker selected PNG');
   await fs.writeFile(path.join(folder, 'first-setup.json'), JSON.stringify({extensionPath,
     output, imageFormat: 'png', nativeFolderDialog: process.platform === 'darwin' || process.env.AUTOCAPTURE_MANUAL_SETUP === '1',
     restartedForNextPhase: true}, null, 2));
