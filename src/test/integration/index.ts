@@ -11,7 +11,8 @@ import { MultiCapture } from '../../multiCapture';
 import { CaptureLayout } from '../../captureLayout';
 import { CmdTerminalManager } from '../../cmdTerminalManager';
 import { CmdRunManager } from '../../cmdRunManager';
-import { execFileSync, spawn } from 'child_process';
+import { execFile, execFileSync, spawn } from 'child_process';
+import { promisify } from 'util';
 import { prepareBundledRuntime } from '../../bundledRuntime';
 
 async function acceptPicker(command: string, next = 0): Promise<unknown> {
@@ -41,9 +42,9 @@ async function freshSetup(extensionPath: string, output: string): Promise<void> 
       await delay(1500);
       for (const destination of [first, output, '--cancel']) {
         try {
-          const log = execFileSync(config.pythonPath, ['-E', '-s', '-X', 'utf8',
+          const log = await promisify(execFile)(config.pythonPath, ['-E', '-s', '-X', 'utf8',
             path.resolve(__dirname, '../../../scripts/macos_first_setup.py'), pid, destination], {timeout: 30000, encoding: 'utf8'});
-          console.log(log);
+          console.log(log.stdout);
         } catch (error) { console.error(String((error as {stderr?: unknown}).stderr)); throw error; }
         if (destination !== '--cancel') { await waitForFolder(destination); }
       }
@@ -116,6 +117,10 @@ async function runApiTests(workspace: string, output: string): Promise<void> {
     assert.ok((await layout.showCode(doc)).visibleRanges.length > 0, 'file tab is restored after REPL capture');
     console.log('PASS API output priority layout and terminal-only capture/restoration');
 
+    // The legacy Pseudoterminal prints full executable/source paths. Give this
+    // fixture room for those paths before checking its representative-output fit.
+    await vscode.commands.executeCommand('workbench.action.toggleMaximizedPanel');
+    await delay(300);
     const repeatedSource = path.join(workspace, '4장', '반복.js');
     await fs.writeFile(repeatedSource, "let i=0; setInterval(()=>console.log('반복', i++), 1)");
     const repeatedRunner = new RunManager(terminal, {nodePath: config.nodePath, timeoutMs: 800}, async () => {
@@ -127,7 +132,7 @@ async function runApiTests(workspace: string, output: string): Promise<void> {
       assert.ok(terminal.captureText.length < terminal.text.length);
       await layout.fit(doc, terminal); terminal.fitRepresentative();
       assert.ok(terminal.estimatedRows <= terminal.dimensions.rows - 2);
-    } finally { repeatedRunner.dispose(); }
+    } finally { repeatedRunner.dispose(); await vscode.commands.executeCommand('workbench.action.toggleMaximizedPanel'); }
     const finiteSource = path.join(workspace, '4장', '유한 반복.js');
     await fs.writeFile(finiteSource, "for(let i=0;i<100;i++) console.log('유한 반복', i)");
     assert.equal((await runner.run(finiteSource, async () => {})).stopped, false);
