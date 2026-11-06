@@ -26,7 +26,7 @@ def select_window(windows, pid, title):
     return window
 
 
-def validate_window(windows, window_id, pid):
+def validate_window(windows, window_id, pid, dock_pids=()):
     target = next((w for w in windows if int(w['kCGWindowNumber']) == window_id), None)
     if (not target or int(target['kCGWindowOwnerPID']) != pid or target.get('kCGWindowLayer') != 0
             or not target.get('kCGWindowIsOnscreen', True) or target.get('kCGWindowAlpha', 1) <= 0):
@@ -35,6 +35,12 @@ def validate_window(windows, window_id, pid):
     for window in windows:
         if int(window['kCGWindowNumber']) == window_id:
             break
+        # macOS exposes Dock's transparent tracking surface as a full-screen
+        # window. It is not an opaque dialog covering the VS Code contents.
+        # Identify the actual Dock process; a similarly named app is not exempt.
+        if (int(window['kCGWindowOwnerPID']) in dock_pids and window.get('kCGWindowLayer') == 20
+                and window.get('kCGWindowName') == 'Dock'):
+            continue
         if (window.get('kCGWindowAlpha', 1) > 0 and window.get('kCGWindowLayer', 0) >= 0
                 and intersects(bounds, rect(window['kCGWindowBounds']))):
             if os.environ.get('AUTOCAPTURE_CAPTURE_DEBUG'):
@@ -72,9 +78,12 @@ def window_list():
 
 
 def verify_window(window_id, pid):
+    from AppKit import NSRunningApplication
     if frontmost_pid() != pid:
         raise RuntimeError('대상 VS Code 창에서 다른 창으로 전환되었습니다.')
-    return validate_window(window_list(), window_id, pid)
+    dock_pids = {int(app.processIdentifier()) for app in
+                 NSRunningApplication.runningApplicationsWithBundleIdentifier_('com.apple.dock')}
+    return validate_window(window_list(), window_id, pid, dock_pids)
 
 
 def ensure_on_screen(bounds):

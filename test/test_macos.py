@@ -50,6 +50,15 @@ class MacWindowTest(unittest.TestCase):
         hidden['kCGWindowIsOnscreen'] = False
         self.assertEqual(select_window([window(11, layer=24), hidden, window()], 20, 'test.js')['kCGWindowNumber'], 10)
 
+    def test_dock_tracking_surface_does_not_block_real_window_capture(self):
+        dock = window(30, pid=300, title='Dock', x=0, layer=20)
+        self.assertEqual(validate_window([dock, window()], 10, 20, {300}), window())
+        with self.assertRaises(RuntimeError):
+            validate_window([dock, window()], 10, 20, {301})
+        dialog = window(31, pid=300, title='Actual dialog', layer=20)
+        with self.assertRaises(RuntimeError):
+            validate_window([dialog, window()], 10, 20, {300})
+
 
 class MacTerminalTest(unittest.TestCase):
     def nodes(self):

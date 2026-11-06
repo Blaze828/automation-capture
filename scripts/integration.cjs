@@ -23,6 +23,8 @@ const { createWriteStream } = require('node:fs');
     'security.workspace.trust.enabled': false,
     'window.title': '${activeEditorShort} - ${rootName} - ${appName}',
     'workbench.startupEditor': 'none', 'workbench.panel.defaultLocation': 'bottom',
+    'window.newWindowDimensions': 'maximized', 'window.zoomLevel': 0,
+    'workbench.secondarySideBar.defaultVisibility': 'hidden',
     'workbench.panel.opensMaximized': 'never', 'workbench.enableExperiments': false,
     'telemetry.telemetryLevel': 'off', 'update.mode': 'none',
     'terminal.integrated.enablePersistentSessions': false,
