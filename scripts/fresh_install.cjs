@@ -73,13 +73,15 @@ const {spawn, execFileSync} = require('node:child_process');
   console.log('PASS clean VS Code installation:', artifacts);
   console.log('Installed payload:', installed);
   for (const phase of ['setup', 'api', ...(process.platform === 'win32' && process.env.GITHUB_ACTIONS ? [] : ['gui'])]) {
-    await new Promise((resolve, reject) => {
+    const watcher = phase === 'gui' && process.platform === 'darwin' && process.env.GITHUB_ACTIONS
+      ? spawn(env.AUTOCAPTURE_PYTHON, ['-E', '-s', '-X', 'utf8', path.join(root, 'scripts/macos_ci_dialogs.py')], {stdio: 'ignore', env}) : undefined;
+    try { await new Promise((resolve, reject) => {
       const child = spawn(process.execPath, [path.join(root, 'scripts/integration.cjs')], {cwd: root, stdio: 'inherit',
         env: {...env, AUTOCAPTURE_FRESH_PHASE: phase,
           ...(phase === 'setup' ? {} : {AUTOCAPTURE_REUSE_PROFILE: '1'}),
           AUTOCAPTURE_API_ONLY: phase === 'api' ? '1' : ''}});
       child.on('error', reject); child.on('close', code => code === 0 ? resolve() : reject(new Error(`Fresh ${phase} exited ${code}`)));
-    });
+    }); } finally { watcher?.kill(); }
     receipt.phases.push(phase);
     await fs.writeFile(path.join(artifacts, 'installation.json'), JSON.stringify(receipt, null, 2));
   }
