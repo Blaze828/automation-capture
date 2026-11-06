@@ -1,7 +1,7 @@
 // Launch an isolated Extension Development Host; never edit the user's profile.
 const path = require('node:path');
 const fs = require('node:fs/promises');
-const { spawn } = require('node:child_process');
+const { spawn, execFileSync } = require('node:child_process');
 const { createWriteStream } = require('node:fs');
 (async () => {
   const root = path.resolve(__dirname, '..');
@@ -35,7 +35,14 @@ const { createWriteStream } = require('node:fs');
   // Spawn the executable directly: the stock test-electron Windows shell launcher
   // splits unquoted Korean/space-containing paths on some Node versions.
   const log = createWriteStream(path.join(artifacts, 'host.log'));
-  const child = spawn(process.env.VSCODE_EXECUTABLE || (process.platform === 'darwin' ? '/Applications/Visual Studio Code.app/Contents/MacOS/Electron' : path.join(process.env.LOCALAPPDATA, 'Programs', 'Microsoft VS Code', 'Code.exe')),
+  let executable = process.env.VSCODE_EXECUTABLE;
+  if (!executable && process.platform === 'darwin') {
+    const app = '/Applications/Visual Studio Code.app';
+    const binary = execFileSync('/usr/libexec/PlistBuddy', ['-c', 'Print CFBundleExecutable', path.join(app, 'Contents', 'Info.plist')], {encoding: 'utf8'}).trim();
+    executable = path.join(app, 'Contents', 'MacOS', binary);
+  }
+  executable ||= path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Microsoft VS Code', 'Code.exe');
+  const child = spawn(executable,
     [workspace, '--user-data-dir', profile, '--extensions-dir', path.join(artifacts, 'extensions'), '--disable-extensions', '--skip-welcome', '--skip-release-notes', '--new-window',
       `--extensionDevelopmentPath=${root}`, `--extensionTestsPath=${path.join(root, 'out', 'test', 'integration', 'index.js')}`],
     { shell: false, env: { ...process.env, AUTOCAPTURE_WORKSPACE: workspace, AUTOCAPTURE_OUTPUT: output } });

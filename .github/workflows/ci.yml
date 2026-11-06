@@ -48,7 +48,9 @@ jobs:
           if [ "$(uname -m)" = arm64 ]; then platform=darwin-arm64; fi
           curl --fail --location --retry 3 "https://update.code.visualstudio.com/latest/$platform/stable" --output "$RUNNER_TEMP/vscode.zip"
           ditto -x -k "$RUNNER_TEMP/vscode.zip" "$RUNNER_TEMP/autocapture-vscode"
-          echo "VSCODE_EXECUTABLE=$RUNNER_TEMP/autocapture-vscode/Visual Studio Code.app/Contents/MacOS/Electron" >> "$GITHUB_ENV"
+          app="$RUNNER_TEMP/autocapture-vscode/Visual Studio Code.app"
+          binary=$(/usr/libexec/PlistBuddy -c 'Print CFBundleExecutable' "$app/Contents/Info.plist")
+          echo "VSCODE_EXECUTABLE=$app/Contents/MacOS/$binary" >> "$GITHUB_ENV"
           echo "AUTOCAPTURE_PYTHON=$(command -v python)" >> "$GITHUB_ENV"
       - name: Mac VS Code extension and terminal API integration
         if: runner.os == 'macOS'
@@ -59,6 +61,10 @@ jobs:
       - name: Record Mac screen recording and accessibility availability
         if: always() && runner.os == 'macOS'
         run: python scripts/macos_permissions.py
+      - name: Mac real window, output pagination and REPL capture
+        if: runner.os == 'macOS'
+        timeout-minutes: 6
+        run: npm run test:integration
       - name: Build platform-specific VSIX
         run: node scripts/package.cjs ${{ matrix.target }}
       - uses: actions/upload-artifact@v4
@@ -68,4 +74,5 @@ jobs:
           path: |
             dist/*.vsix
             .test-artifacts/**/host.log
+            .test-artifacts/**/*.png
             .test-artifacts/macos-permissions.json
