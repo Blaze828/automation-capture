@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as fs from 'fs/promises';
 import { ConfigManager } from './configManager';
 import { FileManager } from './fileManager';
 import { CaptureManager } from './captureManager';
@@ -46,7 +47,13 @@ export function registerCommands(context: vscode.ExtensionContext): void {
         updateFolderStatus();
       }
     }));
-  const openFolder = async (folder: string) => { await vscode.env.openExternal(vscode.Uri.file(folder)); };
+  const openFolder = async (folder: string) => {
+    // Use VS Code's native file reveal API: opening a file: URL externally can
+    // fail on Windows for folders containing Korean characters or spaces.
+    const entries = await fs.readdir(folder, {withFileTypes: true});
+    const child = entries.find(entry => entry.isFile()) ?? entries[0];
+    await vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(child ? path.join(folder, child.name) : folder));
+  };
   const notify = (submission: Submission, warning = '') => {
     void vscode.window.showInformationMessage(`저장 완료: ${submission.image}${warning}`, '폴더 열기').then(action => { if (action) { void openFolder(submission.folder); } });
   };

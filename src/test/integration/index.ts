@@ -378,7 +378,8 @@ async function runScenarios(): Promise<void> {
     assert.ok(entries.includes('131.js') && entries.includes('131 실행결과.png'));
     assert.ok(entries.some(name => name.endsWith('.jpg')) && entries.some(name => name.endsWith('.webp')));
     console.log('PASS real ZIP export through chapter picker; JS/PNG/JPG/WebP archive integrity');
-    await vscode.commands.executeCommand('assignment.openOutputFolder');
+    const opened = await vscode.commands.executeCommand<{ok?: boolean}>('assignment.openOutputFolder');
+    assert.notEqual(opened?.ok, false);
     console.log('PASS Open Output Folder command requested the saved chapter in the OS file manager');
   }
 
