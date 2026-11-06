@@ -12,7 +12,8 @@ const {spawn, execFileSync} = require('node:child_process');
   const artifacts = path.join(root, '.test-artifacts', `fresh-${target}-${Date.now()}`);
   await fs.mkdir(artifacts, {recursive: true});
   const name = `js-assignment-autocapture-${version}-${target}.vsix`;
-  const release = await fetch(`https://api.github.com/repos/Blaze828/automation-capture/releases/tags/v${version}`);
+  const release = await fetch(`https://api.github.com/repos/Blaze828/automation-capture/releases/tags/v${version}`, {
+    headers: process.env.GITHUB_TOKEN ? {Authorization: `Bearer ${process.env.GITHUB_TOKEN}`} : {}, redirect: 'error'});
   if (!release.ok) { throw new Error(`Public release API: ${release.status}`); }
   const asset = (await release.json()).assets.find(item => item.name === name);
   if (!asset?.digest?.startsWith('sha256:')) { throw new Error('Missing release asset or digest'); }
@@ -28,10 +29,18 @@ const {spawn, execFileSync} = require('node:child_process');
   await fs.mkdir(extensions);
   const executable = process.env.VSCODE_EXECUTABLE;
   if (!executable) { throw new Error('Set VSCODE_EXECUTABLE to the isolated VS Code executable'); }
-  const cli = process.env.AUTOCAPTURE_VSCODE_CLI || path.resolve(path.dirname(executable),
-    process.platform === 'darwin' ? '../Resources/app/out/cli.js' : 'resources/app/out/cli.js');
+  let cli = process.env.AUTOCAPTURE_VSCODE_CLI;
+  if (!cli && process.platform === 'win32') {
+    // Recent Windows builds keep resources in a commit-named directory.
+    const launcher = await fs.readFile(path.join(path.dirname(executable), 'bin/code.cmd'), 'utf8');
+    const relative = /"%~dp0([^"\r\n]*cli\.js)"/i.exec(launcher)?.[1];
+    if (!relative) { throw new Error('Cannot locate the CLI from the official Windows launcher'); }
+    cli = path.resolve(path.dirname(executable), 'bin', relative);
+  }
+  cli ||= path.resolve(path.dirname(executable), '../Resources/app/out/cli.js');
   const cliArgs = [cli, '--user-data-dir', profile, '--extensions-dir', extensions];
-  const cliEnv = {...process.env, ELECTRON_RUN_AS_NODE: '1'};
+  const runtimeEnv = {...process.env}; delete runtimeEnv.GITHUB_TOKEN;
+  const cliEnv = {...runtimeEnv, ELECTRON_RUN_AS_NODE: '1'};
   const installation = execFileSync(executable, [...cliArgs, '--install-extension', vsix, '--force'],
     {env: cliEnv, encoding: 'utf8', timeout: 180000, windowsHide: true});
   await fs.writeFile(path.join(artifacts, 'installation.log'), installation);
@@ -54,7 +63,7 @@ const {spawn, execFileSync} = require('node:child_process');
   await fs.writeFile(path.join(driver, 'package.json'), JSON.stringify({name: 'autocapture-test-driver',
     publisher: 'verification', version: '0.0.0', engines: {vscode: '^1.100.0'}, main: './index.cjs'}));
   await fs.writeFile(path.join(driver, 'index.cjs'), 'exports.activate=()=>{};exports.deactivate=()=>{};');
-  const env = {...process.env, AUTOCAPTURE_ARTIFACTS: artifacts, AUTOCAPTURE_PROFILE: profile,
+  const env = {...runtimeEnv, AUTOCAPTURE_ARTIFACTS: artifacts, AUTOCAPTURE_PROFILE: profile,
     AUTOCAPTURE_INSTALLED_EXTENSIONS: extensions, AUTOCAPTURE_TEST_DRIVER: driver,
     AUTOCAPTURE_PACKAGED_ROOT: installed, AUTOCAPTURE_BUNDLED_TEST: '1',
     AUTOCAPTURE_PYTHON: path.join(installed, 'runtime/bundled', runtime.python)};
