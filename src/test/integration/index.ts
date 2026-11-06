@@ -43,8 +43,9 @@ async function runApiTests(workspace: string, output: string): Promise<void> {
     }
     console.log('PASS API real Pseudoterminal Unicode output and repeated execution');
     const layout = new CaptureLayout();
-    const fits = await layout.fit(doc, terminal);
-    assert.equal(fits.output, true);
+    const beforeLayout = {...terminal.dimensions};
+    await layout.fit(doc, terminal);
+    assert.deepEqual(terminal.dimensions, beforeLayout, 'layout preserves the current panel without a native resize request');
     const shortRows = terminal.dimensions.rows;
     terminal.write(Array.from({length: 24}, (_, i) => `height ${i}`).join('\n'));
     await layout.fit(doc, terminal);

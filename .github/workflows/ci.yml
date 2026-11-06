@@ -6,6 +6,9 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: autocapture-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   validate:
     name: ${{ matrix.name }}
@@ -18,7 +21,7 @@ jobs:
             os: windows-latest
             target: win32-x64
           - name: Mac Apple Silicon
-            os: macos-15
+            os: macos-26
             target: darwin-arm64
           - name: Mac Intel
             os: macos-15-intel
