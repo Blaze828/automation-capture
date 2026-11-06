@@ -109,17 +109,30 @@ def drag_once(window_id, pid, plan):
     verify_window(window_id, pid)
     old = q.CGEventGetLocation(q.CGEventCreate(None))
     start, end = tuple(plan['start']), tuple(plan['end'])
+    source = q.CGEventSourceCreate(q.kCGEventSourceStateHIDSystemState)
+
+    def post(kind, point):
+        event = q.CGEventCreateMouseEvent(source, kind, point, q.kCGMouseButtonLeft)
+        if kind in (q.kCGEventLeftMouseDown, q.kCGEventLeftMouseUp):
+            q.CGEventSetIntegerValueField(event, q.kCGMouseEventClickState, 1)
+        if kind == q.kCGEventLeftMouseDragged:
+            q.CGEventSetIntegerValueField(event, q.kCGMouseEventDeltaX, int(end[0] - start[0]))
+            q.CGEventSetIntegerValueField(event, q.kCGMouseEventDeltaY, int(end[1] - start[1]))
+        q.CGEventPost(q.kCGHIDEventTap, event)
+
     pressed = False
     try:
-        q.CGEventPost(q.kCGHIDEventTap, q.CGEventCreateMouseEvent(None, q.kCGEventMouseMoved, start, q.kCGMouseButtonLeft))
-        q.CGEventPost(q.kCGHIDEventTap, q.CGEventCreateMouseEvent(None, q.kCGEventLeftMouseDown, start, q.kCGMouseButtonLeft))
+        post(q.kCGEventMouseMoved, start)
+        time.sleep(0.1)  # Let WindowServer/Chromium hit-test the sash before pressing.
+        post(q.kCGEventLeftMouseDown, start)
         pressed = True
-        time.sleep(0.04)
-        q.CGEventPost(q.kCGHIDEventTap, q.CGEventCreateMouseEvent(None, q.kCGEventLeftMouseDragged, end, q.kCGMouseButtonLeft))
-        time.sleep(0.04)
+        time.sleep(0.1)
+        post(q.kCGEventLeftMouseDragged, end)
+        time.sleep(0.1)
     finally:
         if pressed:
-            q.CGEventPost(q.kCGHIDEventTap, q.CGEventCreateMouseEvent(None, q.kCGEventLeftMouseUp, end, q.kCGMouseButtonLeft))
+            post(q.kCGEventLeftMouseUp, end)
+            time.sleep(0.1)
         q.CGWarpMouseCursorPosition(old)
     verify_window(window_id, pid)
 
@@ -148,6 +161,13 @@ def main():
                            args.current_rows, args.output_rows)
     if plan and not args.probe:
         drag_once(args.hwnd, args.pid, plan)
+    if os.environ.get('AUTOCAPTURE_LAYOUT_DEBUG'):
+        from pathlib import Path
+        debug = Path(os.environ['AUTOCAPTURE_LAYOUT_DEBUG'])
+        nodes = json.loads(debug.read_text(encoding='utf-8'))
+        after = measure_terminal(args.hwnd, args.pid) if plan and not args.probe else geometry
+        debug.write_text(json.dumps({'nodes': nodes, 'before': geometry, 'after': after, 'plan': plan,
+                                     'currentRows': args.current_rows, 'outputRows': args.output_rows}), encoding='utf-8')
     print(json.dumps({'resized': bool(plan) and not args.probe, 'geometry': geometry, 'plan': plan}))
 
 
