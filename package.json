@@ -2,7 +2,7 @@
   "name": "js-assignment-autocapture",
   "displayName": "JS Assignment AutoCapture",
   "description": "Windows와 macOS에서 JavaScript 과제를 실행하고 실제 VS Code 창을 제출용 이미지로 캡처합니다.",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "publisher": "Blaze828",
   "license": "MIT",
   "repository": {

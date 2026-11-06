@@ -1,6 +1,6 @@
 # Mac 설치·사용 안내
 
-**VSIX 파일 하나만 설치하면 됩니다. Node.js·Python·캡처 도구가 모두 포함되어 있습니다.** · 0.7.1
+**VSIX 파일 하나만 설치하면 됩니다. Node.js·Python·캡처 도구가 모두 포함되어 있습니다.** · 0.7.2
 
 기존 Python이나 Conda 버전에 맞춰 명령어를 실행할 필요가 없습니다.
 
@@ -12,8 +12,8 @@
 
 | 표시된 종류 | 받을 파일 |
 |---|---|
-| **Apple M시리즈** | **[M시리즈용 다운로드](https://github.com/Blaze828/automation-capture/releases/download/v0.7.1/js-assignment-autocapture-0.7.1-darwin-arm64.vsix)** |
-| **Intel** | **[Intel용 다운로드](https://github.com/Blaze828/automation-capture/releases/download/v0.7.1/js-assignment-autocapture-0.7.1-darwin-x64.vsix)** |
+| **Apple M시리즈** | **[M시리즈용 다운로드](https://github.com/Blaze828/automation-capture/releases/download/v0.7.2/js-assignment-autocapture-0.7.2-darwin-arm64.vsix)** |
+| **Intel** | **[Intel용 다운로드](https://github.com/Blaze828/automation-capture/releases/download/v0.7.2/js-assignment-autocapture-0.7.2-darwin-x64.vsix)** |
 
 1. 내 Mac에 맞는 **`.vsix` 파일 하나**를 다운로드합니다.
 2. VS Code에서 **확장 → 위쪽 ⋯ → VSIX에서 설치…**를 누릅니다.
@@ -45,7 +45,7 @@ macOS 13 이상과 [VS Code](https://code.visualstudio.com/download) 1.100 이�
 
 VS Code **맨 아래 `저장 폴더 선택` → 원하는 폴더 → `이 폴더에 저장`** 순서로 누릅니다. 설정 후 버튼에 현재 폴더 이름이 표시되고, 다시 누르면 변경할 수 있습니다. **Control+Option+S**로 바로 열어도 됩니다.
 
-`제출` 같은 상위 폴더만 고르면 `6장` 등 장별 폴더는 자동으로 만들어집니다. 선택한 위치는 같은 과제 폴더에서 기억합니다. 이 버튼은 **0.7.1 이상**에서 제공됩니다.
+`제출` 같은 상위 폴더만 고르면 `6장` 등 장별 폴더는 자동으로 만들어집니다. 선택한 위치는 같은 과제 폴더에서 기억합니다. 이 버튼은 **0.7.2 이상**에서 제공됩니다.
 
 ## 자주 쓰는 단축키
 
@@ -77,7 +77,7 @@ REPL은 **E로 시작 → JS 입력 → D로 저장** 순서입니다.
 
 - 단축키가 안 되면 **Command+Shift+P → Assignment: Run and Capture**로 실행하세요.
 - 캡처 권한 오류는 위의 Mac 권한을 확인하고 VS Code를 완전히 종료한 뒤 다시 여세요.
-- 예전 Python/Pillow 오류가 계속되면 **0.7.1 이상**인지 확인하고 다시 로드하세요. 기본 설정은 확장에 포함된 실행 환경을 사용합니다.
+- 예전 Python/Pillow 오류가 계속되면 **0.7.2 이상**인지 확인하고 다시 로드하세요. 기본 설정은 확장에 포함된 실행 환경을 사용합니다.
 - Rosetta로 Intel VS Code를 사용한다면 **Intel용 확장**을 설치하세요.
 - 다운로드가 안 되면 [릴리스 페이지](https://github.com/Blaze828/automation-capture/releases/latest)의 **Assets**에서 받으세요.
 

@@ -1,6 +1,6 @@
 # JS Assignment AutoCapture
 
-**JavaScript 파일을 실행하고, 결과 사진과 원본 코드를 과제 제출용으로 저장하는 VS Code 확장입니다.** · 버전 0.7.1
+**JavaScript 파일을 실행하고, 결과 사진과 원본 코드를 과제 제출용으로 저장하는 VS Code 확장입니다.** · 버전 0.7.2
 
 Windows와 Mac에서 사용할 수 있습니다. **내 컴퓨터에 맞는 VSIX 파일 하나만 설치하면 됩니다.** Node.js·Python·캡처 도구가 포함되어 별도 설치 명령이나 경로 설정이 필요 없습니다.
 
@@ -10,9 +10,9 @@ Windows와 Mac에서 사용할 수 있습니다. **내 컴퓨터에 맞는 VSIX 
 
 | 컴퓨터 | 설치 파일 | 자세한 안내 |
 |---|---|---|
-| Windows 10/11 · x64 | **[Windows용 다운로드](https://github.com/Blaze828/automation-capture/releases/download/v0.7.1/js-assignment-autocapture-0.7.1-win32-x64.vsix)** | [Windows 안내](README.windows.md) |
-| Mac · Apple M시리즈 | **[M시리즈용 다운로드](https://github.com/Blaze828/automation-capture/releases/download/v0.7.1/js-assignment-autocapture-0.7.1-darwin-arm64.vsix)** | [Mac 안내](README.macos.md) |
-| Mac · Intel | **[Intel용 다운로드](https://github.com/Blaze828/automation-capture/releases/download/v0.7.1/js-assignment-autocapture-0.7.1-darwin-x64.vsix)** | [Mac 안내](README.macos.md) |
+| Windows 10/11 · x64 | **[Windows용 다운로드](https://github.com/Blaze828/automation-capture/releases/download/v0.7.2/js-assignment-autocapture-0.7.2-win32-x64.vsix)** | [Windows 안내](README.windows.md) |
+| Mac · Apple M시리즈 | **[M시리즈용 다운로드](https://github.com/Blaze828/automation-capture/releases/download/v0.7.2/js-assignment-autocapture-0.7.2-darwin-arm64.vsix)** | [Mac 안내](README.macos.md) |
+| Mac · Intel | **[Intel용 다운로드](https://github.com/Blaze828/automation-capture/releases/download/v0.7.2/js-assignment-autocapture-0.7.2-darwin-x64.vsix)** | [Mac 안내](README.macos.md) |
 
 Mac 종류는 **Apple 메뉴 → 이 Mac에 관하여**에서 확인합니다. Rosetta로 Intel 버전 VS Code를 사용한다면 Intel용 확장을 선택하세요.
 
@@ -55,7 +55,7 @@ macOS 13 이상에서 **시스템 설정 → 개인정보 보호 및 보안**으
 
 설정 후에는 버튼이 **`저장 폴더: 제출`**처럼 바뀝니다. 다시 누르면 저장 위치를 변경할 수 있고, 마우스를 올리면 전체 경로가 보입니다. 선택은 같은 과제 폴더에서 기억합니다.
 
-키보드로는 **Windows: Ctrl+Alt+S / Mac: Control+Option+S**로 바로 선택합니다. 처음 실행할 때 고르는 방식도 그대로 사용할 수 있습니다. **0.7.1 이상**으로 업데이트하면 이 버튼이 표시됩니다.
+키보드로는 **Windows: Ctrl+Alt+S / Mac: Control+Option+S**로 바로 선택합니다. 처음 실행할 때 고르는 방식도 그대로 사용할 수 있습니다. **0.7.2 이상**으로 업데이트하면 이 버튼이 표시됩니다.
 
 ## 3. 자주 쓰는 단축키
 
@@ -155,7 +155,7 @@ Windows는 **Ctrl+Alt**, Mac은 **Control+Option**을 글자 키와 함께 누�
 | 다운로드 링크가 안 열림 | [릴리스 페이지](https://github.com/Blaze828/automation-capture/releases/latest)의 **Assets**에서 내 컴퓨터에 맞는 `.vsix` 선택 |
 | 단축키가 동작하지 않음 | `.js` 탭을 선택하고 명령 팔레트에서 `Assignment: Run and Capture` 실행. 바로 가기 키 설정에서 충돌 확인 |
 | 작업 영역이 제한 모드임 | 본인이 신뢰하는 과제 폴더라면 VS Code의 작업 영역 신뢰를 허용한 뒤 실행 |
-| 예전 Python·Pillow 설치 오류가 남음 | **0.7.1 이상**인지 확인하고 다시 로드. 설정에서 `Assignment: Use Bundled Runtime` 켜기 |
+| 예전 Python·Pillow 설치 오류가 남음 | **0.7.2 이상**인지 확인하고 다시 로드. 설정에서 `Assignment: Use Bundled Runtime` 켜기 |
 | Mac에서 권한 오류가 뜸 | 화면 기록·손쉬운 사용 권한 허용 후 VS Code 완전히 종료 → 다시 열기 |
 | 캡처가 취소되거나 JS만 저장됨 | 오류 알림을 확인하고 겹친 창·대화상자를 닫아 VS Code를 전면에 둔 뒤 다시 실행 |
 | 다른 JS를 실행하고 싶음 | 다음 `.js` 파일을 클릭하고 Q 단축키. 같은 자동 실행 터미널을 재사용 |

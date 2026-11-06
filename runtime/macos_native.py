@@ -2,6 +2,7 @@
 import math
 import os
 import sys
+from functools import lru_cache
 
 
 def rect(bounds):
@@ -26,7 +27,7 @@ def select_window(windows, pid, title):
     return window
 
 
-def validate_window(windows, window_id, pid, dock_pids=()):
+def validate_window(windows, window_id, pid, dock_pids=(), cursor_pids=(), cursor_level=None):
     target = next((w for w in windows if int(w['kCGWindowNumber']) == window_id), None)
     if (not target or int(target['kCGWindowOwnerPID']) != pid or target.get('kCGWindowLayer') != 0
             or not target.get('kCGWindowIsOnscreen', True) or target.get('kCGWindowAlpha', 1) <= 0):
@@ -40,6 +41,13 @@ def validate_window(windows, window_id, pid, dock_pids=()):
         # Identify the actual Dock process; a similarly named app is not exempt.
         if (int(window['kCGWindowOwnerPID']) in dock_pids and window.get('kCGWindowLayer') == 20
                 and window.get('kCGWindowName') == 'Dock'):
+            continue
+        # The hardware cursor can appear in the window list after using a native
+        # picker. It is a system surface, not a window obscuring the document.
+        if (cursor_level is not None and int(window['kCGWindowOwnerPID']) in cursor_pids
+                and window.get('kCGWindowLayer') == cursor_level
+                and window.get('kCGWindowName') == 'Cursor'
+                and window.get('kCGWindowOwnerName') == 'Window Server'):
             continue
         if (window.get('kCGWindowAlpha', 1) > 0 and window.get('kCGWindowLayer', 0) >= 0
                 and intersects(bounds, rect(window['kCGWindowBounds']))):
@@ -77,13 +85,33 @@ def window_list():
                                            q.kCGNullWindowID) or [])
 
 
+@lru_cache(maxsize=16)
+def is_system_window_server(pid):
+    import pwd
+    import subprocess
+    from pathlib import Path
+    try:
+        owner, command = subprocess.check_output(['/bin/ps', '-p', str(pid), '-o', 'uid=,comm='],
+                                                text=True, timeout=2).strip().split(maxsplit=1)
+        return int(owner) == pwd.getpwnam('_windowserver').pw_uid and Path(command).name == 'WindowServer'
+    except (KeyError, ValueError, OSError, subprocess.SubprocessError):
+        return False
+
+
 def verify_window(window_id, pid):
     from AppKit import NSRunningApplication
+    import Quartz as q
     if frontmost_pid() != pid:
         raise RuntimeError('대상 VS Code 창에서 다른 창으로 전환되었습니다.')
     dock_pids = {int(app.processIdentifier()) for app in
                  NSRunningApplication.runningApplicationsWithBundleIdentifier_('com.apple.dock')}
-    return validate_window(window_list(), window_id, pid, dock_pids)
+    windows = window_list()
+    cursor_level = q.CGWindowLevelForKey(q.kCGCursorWindowLevelKey)
+    cursor_pids = {int(w['kCGWindowOwnerPID']) for w in windows
+                   if w.get('kCGWindowLayer') == cursor_level and w.get('kCGWindowName') == 'Cursor'
+                   and w.get('kCGWindowOwnerName') == 'Window Server'
+                   and is_system_window_server(int(w['kCGWindowOwnerPID']))}
+    return validate_window(windows, window_id, pid, dock_pids, cursor_pids, cursor_level)
 
 
 def ensure_on_screen(bounds):

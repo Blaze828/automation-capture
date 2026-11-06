@@ -7,21 +7,27 @@ const {spawn, execFileSync} = require('node:child_process');
 
 (async () => {
   const root = path.resolve(__dirname, '..');
-  const version = process.env.AUTOCAPTURE_RELEASE_VERSION || '0.7.1';
+  const candidate = process.env.AUTOCAPTURE_BUILD_CANDIDATE === 'true';
+  const version = process.env.AUTOCAPTURE_RELEASE_VERSION || (candidate ? require('../package.json').version : '0.7.1');
   const target = `${process.platform}-${process.arch}`;
   const artifacts = path.join(root, '.test-artifacts', `fresh-${target}-${Date.now()}`);
   await fs.mkdir(artifacts, {recursive: true});
   const name = `js-assignment-autocapture-${version}-${target}.vsix`;
-  const release = await fetch(`https://api.github.com/repos/Blaze828/automation-capture/releases/tags/v${version}`, {
+  let payload;
+  if (candidate) {
+    payload = await fs.readFile(path.join(root, 'dist', name));
+  } else {
+    const release = await fetch(`https://api.github.com/repos/Blaze828/automation-capture/releases/tags/v${version}`, {
     headers: process.env.GITHUB_TOKEN ? {Authorization: `Bearer ${process.env.GITHUB_TOKEN}`} : {}, redirect: 'error'});
   if (!release.ok) { throw new Error(`Public release API: ${release.status}`); }
   const asset = (await release.json()).assets.find(item => item.name === name);
   if (!asset?.digest?.startsWith('sha256:')) { throw new Error('Missing release asset or digest'); }
   const download = await fetch(asset.browser_download_url);
   if (!download.ok) { throw new Error(`Anonymous download: ${download.status}`); }
-  const payload = Buffer.from(await download.arrayBuffer());
+    payload = Buffer.from(await download.arrayBuffer());
+    if (`sha256:${crypto.createHash('sha256').update(payload).digest('hex')}` !== asset.digest || payload.length !== asset.size) { throw new Error('Public installer digest mismatch'); }
+  }
   const sha256 = crypto.createHash('sha256').update(payload).digest('hex');
-  if (`sha256:${sha256}` !== asset.digest || payload.length !== asset.size) { throw new Error('Public installer digest mismatch'); }
   const vsix = path.join(artifacts, name);
   await fs.writeFile(vsix, payload);
   const profile = process.platform === 'darwin' ? await fs.mkdtemp('/tmp/ac-fresh-') : path.join(artifacts, '새 사용자 프로필');
@@ -68,7 +74,7 @@ const {spawn, execFileSync} = require('node:child_process');
     AUTOCAPTURE_PACKAGED_ROOT: installed, AUTOCAPTURE_BUNDLED_TEST: '1',
     AUTOCAPTURE_PYTHON: path.join(installed, 'runtime/bundled', runtime.python)};
   const receipt = {version, target, installed, profile, artifacts, sha256, installation: listed.trim(),
-    downloadedAnonymously: true, installedByVsCode: true, phases: []};
+    downloadedAnonymously: !candidate, installedByVsCode: true, phases: []};
   await fs.writeFile(path.join(artifacts, 'installation.json'), JSON.stringify(receipt, null, 2));
   console.log('PASS clean VS Code installation:', artifacts);
   console.log('Installed payload:', installed);

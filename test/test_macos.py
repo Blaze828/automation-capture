@@ -59,6 +59,18 @@ class MacWindowTest(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             validate_window([dialog, window()], 10, 20, {300})
 
+    def test_only_verified_system_cursor_surface_is_exempt(self):
+        cursor = window(40, pid=400, title='Cursor', layer=2147483630)
+        cursor['kCGWindowOwnerName'] = 'Window Server'
+        self.assertEqual(validate_window([cursor, window()], 10, 20, cursor_pids={400},
+                                         cursor_level=2147483630), window())
+        for changed, trusted in (({}, {401}), ({'kCGWindowLayer': 20}, {400}),
+                                 ({'kCGWindowName': 'Actual dialog'}, {400}),
+                                 ({'kCGWindowOwnerName': 'Another app'}, {400})):
+            with self.subTest(changed=changed), self.assertRaises(RuntimeError):
+                validate_window([{**cursor, **changed}, window()], 10, 20,
+                                cursor_pids=trusted, cursor_level=2147483630)
+
 
 class MacTerminalTest(unittest.TestCase):
     def nodes(self):
