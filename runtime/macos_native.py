@@ -1,5 +1,7 @@
 """macOS window identity/geometry. Imports stay lazy so pure helpers can be tested anywhere."""
 import math
+import os
+import sys
 
 
 def rect(bounds):
@@ -35,6 +37,8 @@ def validate_window(windows, window_id, pid):
             break
         if (window.get('kCGWindowAlpha', 1) > 0 and window.get('kCGWindowLayer', 0) >= 0
                 and intersects(bounds, rect(window['kCGWindowBounds']))):
+            if os.environ.get('AUTOCAPTURE_CAPTURE_DEBUG'):
+                print('Capture blocker: ' + str(dict(window)), file=sys.stderr)
             raise RuntimeError('VS Code 창 위에 다른 창 또는 대화상자가 겹쳐 있습니다. 닫은 뒤 다시 캡처하세요.')
     return target
 

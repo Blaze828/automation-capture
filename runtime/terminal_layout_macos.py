@@ -1,6 +1,7 @@
 """Read Electron's macOS AX tree; resize the existing terminal with one drag."""
 import argparse
 import json
+import os
 import sys
 import time
 
@@ -94,6 +95,9 @@ def measure_terminal(window_id, pid):
                           'identifier': str(attr(element, 'AXDOMIdentifier') or attr(element, 'AXIdentifier') or '')})
         stack.extend(attr(element, 'AXChildren') or [])
     verify_window(window_id, pid)
+    if os.environ.get('AUTOCAPTURE_LAYOUT_DEBUG'):
+        from pathlib import Path
+        Path(os.environ['AUTOCAPTURE_LAYOUT_DEBUG']).write_text(json.dumps(nodes), encoding='utf-8')
     return choose_geometry(nodes, focus)
 
 

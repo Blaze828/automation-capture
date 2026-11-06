@@ -65,6 +65,9 @@ jobs:
       - name: Mac real window, output pagination and REPL capture
         if: ${{ !cancelled() && runner.os == 'macOS' && steps.vscode.outcome == 'success' }}
         timeout-minutes: 6
+        env:
+          AUTOCAPTURE_CAPTURE_DEBUG: '1'
+          AUTOCAPTURE_LAYOUT_DEBUG: ${{ github.workspace }}/.test-artifacts/macos-layout.json
         run: npm run test:integration
       - name: Capture Mac desktop on integration failure
         if: failure() && runner.os == 'macOS'
@@ -76,8 +79,10 @@ jobs:
         if: always()
         with:
           name: autocapture-${{ matrix.target }}
+          include-hidden-files: true
           path: |
             dist/*.vsix
             .test-artifacts/**/host.log
             .test-artifacts/**/*.png
             .test-artifacts/macos-permissions.json
+            .test-artifacts/macos-layout.json

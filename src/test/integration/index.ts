@@ -130,7 +130,6 @@ async function runCmdApiTests(workspace: string, extensionPath: string): Promise
   const terminal = new CmdTerminalManager(extensionPath);
   const runner = new CmdRunManager(terminal, {nodePath: config.nodePath, timeoutMs: 1000});
   try {
-    const before = vscode.window.terminals.length;
     const source = path.join(workspace, '4장', '131.js');
     const doc = await vscode.workspace.openTextDocument(source); await vscode.window.showTextDocument(doc);
     const result = await runner.run(source, async () => {});
@@ -159,8 +158,11 @@ async function runCmdApiTests(workspace: string, extensionPath: string): Promise
     const secondSource = path.join(workspace, '두번째 장', '재사용.js');
     await fs.mkdir(path.dirname(secondSource), {recursive: true});
     await fs.writeFile(secondSource, "console.log('두번째 결과 ONLY_SECOND'); console.log(process.cwd())");
-    assert.equal((await runner.run(secondSource, async () => {})).code, 0);
-    assert.equal(vscode.window.terminals.length, before + 1, 'a second file does not add another CMD tab');
+    const opened: vscode.Terminal[] = [];
+    const listener = vscode.window.onDidOpenTerminal(value => opened.push(value));
+    try { assert.equal((await runner.run(secondSource, async () => {})).code, 0); }
+    finally { listener.dispose(); }
+    assert.equal(opened.length, 0, 'a second file does not open another terminal');
     assert.equal(vscode.window.activeTerminal, firstCmd);
     assert.equal(await vscode.window.activeTerminal?.processId, cmdPid);
     assert.match(terminal.text, /ONLY_SECOND/); assert.doesNotMatch(terminal.text, /안녕하세요/);
