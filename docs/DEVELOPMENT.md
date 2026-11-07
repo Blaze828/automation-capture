@@ -48,7 +48,7 @@ Mac Python 검사:
 runtime/bundled/python/bin/python3 -E -s -X utf8 -m unittest discover -s test -p 'test_*.py'
 ```
 
-CI는 완성된 VSIX를 한글·공백 경로에 풀고, 존재하지 않는 사용자 Node/Python 경로와 잘못된 PYTHONHOME/PYTHONPATH, 최소 PATH 상태에서 확장·터미널·실제 GUI를 검사합니다. VS Code 설치 경로가 다르면 `VSCODE_EXECUTABLE`을 지정합니다.
+설치 검증은 한글과 공백이 포함된 경로의 새 VS Code 프로필에 배포용 VSIX를 설치합니다. 잘못된 사용자 Node/Python 경로와 PYTHONHOME/PYTHONPATH, 최소 PATH 환경에서 포함된 실행 도구로 동작하는지 확인합니다. 로컬에서 VS Code 설치 경로가 다르면 `VSCODE_EXECUTABLE`을 지정합니다.
 
 ## 설정
 
@@ -80,17 +80,17 @@ Node/Python 경로에는 실행 파일만 넣습니다. 폴더 경로나 인수�
 |---|---|
 | Python 모듈 오류 | 0.7.0 이상으로 다시 설치하고 `assignment.useBundledRuntime`을 켜세요. 직접 지정한 환경은 옵션을 껐을 때만 사용합니다 |
 | 파일명 불일치 | 원본 JS 탭 선택. 사용자 지정 `window.title`에 `${activeEditorShort}` 포함 |
-| 창이 가려져 촬영 취소 | 겹친 창·대화상자를 닫고 VS Code를 전면에 배치 |
+| Windows에서 창이 가려져 촬영 취소 | 겹친 창·대화상자를 닫고 VS Code를 전면에 배치 |
 | JS만 저장되고 이미지가 없음 | 오류 원인을 해결한 뒤 추가 캡처 단축키 W 사용 |
 | Mac에서 접근성 영역을 찾지 못함 | 터미널 선택 후 재시도. 필요하면 `code --force-renderer-accessibility`로 시작 |
 
-Mac에서 터미널 경계선을 확인하지 못하면 일반 실행은 배치를 유지하고 출력 분할로 진행합니다. REPL 영역을 확인하지 못할 때는 오류를 표시합니다.
+Mac에서는 지정한 VS Code 창만 촬영합니다. 터미널 경계선이 가려져 높이를 조절할 수 없으면 기존 배치를 유지하고, 출력이 넘칠 때는 나눠서 촬영합니다. REPL 영역을 확인하지 못할 때는 오류를 표시합니다.
 
 ## 지원·검증 범위
 
 Windows와 macOS의 신뢰한 로컬 데스크톱 VS Code 작업 폴더를 사용합니다. Linux, VS Code 웹, WSL/SSH/컨테이너, 별도 외부 터미널 창 촬영은 지원하지 않습니다. 출력 보관 한도는 1,000,000자입니다. 전체 화면 TUI와 복잡한 ANSI 커서 제어는 지원 대상이 아닙니다.
 
-0.7.0 설치 파일의 환경·검사 결과는 [최신 검증 기록](../TESTING.md)을 확인하세요. Mac M시리즈·Intel은 실제 창과 REPL 촬영까지 검사합니다. Windows는 설치 파일의 확장·터미널 API와 실제 CMD 재사용을 검사하며, 0.7.0 Windows GUI 촬영 전체는 별도 재검증 대상입니다. 실제 Retina 장치·혼합 배율/HDR 다중 모니터 등 남은 범위는 [검증 기록](../TESTING.md)을 확인하세요.
+0.7.3은 Windows x64, Mac M시리즈, Mac Intel에서 새 프로필에 설치해 검증했습니다. Windows는 확장 명령과 실제 CMD 동작을, 두 Mac은 전체 화면에서 다른 창이 겹쳐 있을 때 일반 캡처와 REPL 캡처까지 확인했습니다. Windows 화면 촬영은 0.7.2에서 로컬로 검증했습니다. 버전별 검사와 미검증 환경은 [검증 기록](../TESTING.md)에 정리되어 있습니다.
 
 <details>
 <summary><b>실제 Mac 검증 화면 보기</b></summary>
