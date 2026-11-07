@@ -370,6 +370,13 @@ async function runScenarios(): Promise<void> {
       }
       assert.ok(await fs.stat(receipt).catch(() => false), overlayError || 'overlay became visible');
       await delay(800);
+      // Starting a Cocoa fixture can briefly change focus even with a
+      // nonactivating panel. Restore only our owned Code app before capture.
+      const pid = (await fs.readFile(process.env.AUTOCAPTURE_MAIN_PID_FILE!, 'utf8')).trim();
+      await promisify(execFile)(config.pythonPath, ['-E', '-s', '-X', 'utf8',
+        path.resolve(__dirname, '../../../scripts/macos_activate_ci.py'), pid], {timeout: 15000});
+      for (let i = 0; i < 40 && !vscode.window.state.focused; i++) { await delay(100); }
+      assert.ok(vscode.window.state.focused, 'Code has focus while the nonactivating overlay remains visible');
       const captured = await vscode.commands.executeCommand<{ok?: boolean; error?: string}>('assignment.runAndCapture');
       assert.notEqual(captured?.ok, false, captured?.error);
       await vscode.commands.executeCommand('assignment.startRepl');
