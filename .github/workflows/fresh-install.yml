@@ -78,6 +78,8 @@ jobs:
             .test-artifacts/fresh-*/*.log
             .test-artifacts/fresh-*/first-setup.json
             .test-artifacts/fresh-*/gui-verification.json
+            .test-artifacts/fresh-*/overlay.json
+            .test-artifacts/fresh-*/overlay.png
             .test-artifacts/fresh-*/failure.png
             .test-artifacts/fresh-*/과제 제출/**/*.png
             .test-artifacts/fresh-*/과제 제출/*.zip
