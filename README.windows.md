@@ -6,7 +6,7 @@ Windows 10/11 x64와 데스크톱 VS Code 1.100 이상을 사용합니다. VSIX 
 
 ## 설치와 업데이트
 
-1. 공개 배포본을 설치하려면 GitHub 릴리스의 **Assets**에서 이름이 `win32-x64.vsix`로 끝나는 파일을 받습니다. 폴더 일괄 실행을 쓰려면 현재 소스에서 빌드한 Windows용 VSIX를 선택합니다. [배포본과 소스 빌드 안내](README.md#설치)
+1. Windows용 VSIX를 받습니다. 단일 실행과 폴더 일괄 실행이 함께 들어 있습니다. [Windows용 VSIX 다운로드](https://github.com/Blaze828/automation-capture/releases/download/v0.8.0/js-assignment-autocapture-0.8.0-win32-x64.vsix)
 2. VS Code 왼쪽의 **확장 → ⋯ → VSIX에서 설치…**에서 파일을 선택합니다.
 3. **다시 로드** 안내가 나오면 누릅니다.
 

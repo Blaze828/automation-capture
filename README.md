@@ -8,15 +8,13 @@ VS Code에서 JavaScript 과제를 실행하고, 제출할 **JS 복사본과 실
 
 로컬 데스크톱 **VS Code 1.100 이상**에서 사용합니다. VSIX에는 Node.js와 Python, 캡처 도구가 포함됩니다.
 
-| 환경 | VSIX 파일 이름 끝부분 | 설치 안내 |
+| 환경 | VSIX 다운로드 | 설치 안내 |
 |---|---|---|
-| Windows 10/11 x64 | `win32-x64.vsix` | [Windows 안내](README.windows.md) |
-| macOS 13 이상 · Apple Silicon | `darwin-arm64.vsix` | [Mac 안내](README.macos.md) |
-| macOS 13 이상 · Intel | `darwin-x64.vsix` | [Mac 안내](README.macos.md) |
+| Windows 10/11 x64 | [Windows용 VSIX](https://github.com/Blaze828/automation-capture/releases/download/v0.8.0/js-assignment-autocapture-0.8.0-win32-x64.vsix) | [Windows 안내](README.windows.md) |
+| macOS 13 이상 · Apple Silicon | [Apple Silicon용 VSIX](https://github.com/Blaze828/automation-capture/releases/download/v0.8.0/js-assignment-autocapture-0.8.0-darwin-arm64.vsix) | [Mac 안내](README.macos.md) |
+| macOS 13 이상 · Intel | [Intel Mac용 VSIX](https://github.com/Blaze828/automation-capture/releases/download/v0.8.0/js-assignment-autocapture-0.8.0-darwin-x64.vsix) | [Mac 안내](README.macos.md) |
 
-배포용 VSIX는 GitHub 릴리스의 **Assets**에서 받습니다. 공개 릴리스 `v0.7.3`에서는 단일 파일 실행을 사용할 수 있습니다. [GitHub 릴리스](https://github.com/Blaze828/automation-capture/releases/latest)
-
-**폴더 일괄 실행을 사용하려면 현재 소스에서 빌드한 VSIX를 설치하세요.** 빌드한 파일은 `dist/`에 생성됩니다. [VSIX 빌드 방법](docs/DEVELOPMENT.md#소스에서-빌드하기)
+**단일 실행과 폴더 일괄 실행이 같은 VSIX에 들어 있습니다.** 사용 중인 운영체제에 맞는 파일 하나를 받으세요. [GitHub 릴리스](https://github.com/Blaze828/automation-capture/releases/latest)
 
 1. VS Code 왼쪽의 **확장**을 엽니다.
 2. 상단 **⋯ → VSIX에서 설치…**를 눌러 `.vsix` 파일을 선택합니다. 업데이트도 같은 순서로 설치합니다.
@@ -98,7 +96,7 @@ VS Code에서 JavaScript 과제를 실행하고, 제출할 **JS 복사본과 실
 
 | 증상 | 확인할 항목 |
 |---|---|
-| 폴더 일괄 실행 명령이 보이지 않음 | 현재 소스의 VSIX를 설치한 뒤 명령 팔레트에서 `Assignment: Run Folder and Capture`를 검색합니다. [설치 안내](#설치) |
+| 폴더 일괄 실행 명령이 보이지 않음 | `v0.8.0` 이상 VSIX를 설치한 뒤 명령 팔레트에서 `Assignment: Run Folder and Capture`를 검색합니다. [설치 안내](#설치) |
 | 선택한 폴더에서 실행할 파일이 없다고 나옴 | `.js` 파일이 바로 들어 있는 원본 폴더를 선택합니다. |
 | 단축키가 동작하지 않음 | 명령 팔레트에서 같은 명령을 실행하고 **바로 가기 키 설정**에서 충돌을 확인합니다. |
 | 작업 영역이 제한 모드임 | 신뢰하는 과제 폴더인지 확인한 뒤 작업 영역 신뢰를 허용합니다. |
