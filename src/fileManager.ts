@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import { randomUUID } from 'crypto';
 import { ConfigManager } from './configManager';
+import { ImageFormat } from './imageFormat';
 import { Cancelled, CaptureKind, Submission } from './types';
 import { exists, publishFile, versioned } from './storage';
 export { exists, publishFile, versioned } from './storage';
@@ -32,26 +33,31 @@ export class FileManager {
       if (saved === false || document.isUntitled) { throw new Cancelled(); }
     }
     if (document.uri.scheme !== 'file' || !/\.js$/i.test(document.fileName)) { throw new Error('로컬 .js 파일로 저장해야 합니다.'); }
-    if (document.isDirty && !await document.save()) { throw new Error('원본 JavaScript 파일을 저장하지 못했습니다.'); }
+    await this.save(document);
     this.lastUri = document.uri;
     return document;
   }
-  async prepare(document: vscode.TextDocument, kind: CaptureKind, again = false): Promise<Submission> {
+  async save(document: vscode.TextDocument): Promise<void> {
+    if (document.isDirty && !await document.save()) { throw new Error('원본 JavaScript 파일을 저장하지 못했습니다.'); }
+  }
+  async prepare(document: vscode.TextDocument, kind: CaptureKind, again = false,
+    batch?: { folder: string; imageFormat: ImageFormat }): Promise<Submission> {
     const source = document.uri.fsPath;
     const chapter = path.basename(path.dirname(source));
     if (!chapter) { throw new Error('파일을 장 폴더 안에 저장하세요.'); }
-    const folder = path.join(await this.config.outputFolder(), chapter);
+    const folder = batch?.folder ?? path.join(await this.config.outputFolder(), chapter);
     await fs.mkdir(folder, { recursive: true });
     const base = path.basename(source, path.extname(source));
     const code = path.join(folder, `${base}.js`);
-    let image = path.join(folder, `${base} ${kind === 'repl' ? 'REPL' : '실행결과'}.${await this.config.imageFormat()}`);
+    const format = batch?.imageFormat ?? await this.config.imageFormat();
+    let image = path.join(folder, `${base} ${kind === 'repl' ? 'REPL' : '실행결과'}.${format}`);
     if (again) { let n = 2; const initial = image; do { image = versioned(initial, n++); } while (await exists(image)); }
     const sameSource = samePath(code, source);
     const unchanged = sameSource || (await exists(code) && (await fs.readFile(code)).equals(await fs.readFile(source)));
     let destinationCode = code;
     let overwrite = false;
     if ((!unchanged && await exists(code)) || await exists(image)) {
-      const decision = await this.chooseConflict();
+      const decision = batch ? '새 버전으로 저장' : await this.chooseConflict();
       if (!decision || decision === '취소') { throw new Cancelled(); }
       overwrite = decision === '덮어쓰기';
       if (!overwrite) {

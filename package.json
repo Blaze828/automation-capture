@@ -69,6 +69,10 @@
         "icon": "$(device-camera)"
       },
       {
+        "command": "assignment.runFolderAndCapture",
+        "title": "Assignment: Run Folder and Capture"
+      },
+      {
         "command": "assignment.captureAgain",
         "title": "Assignment: Capture Again"
       },
@@ -107,6 +111,11 @@
         "key": "ctrl+alt+q",
         "when": "!inDebugRepl && !editorReadonly",
         "mac": "ctrl+alt+q"
+      },
+      {
+        "command": "assignment.runFolderAndCapture",
+        "key": "ctrl+alt+shift+b",
+        "mac": "ctrl+alt+shift+b"
       },
       {
         "command": "assignment.captureAgain",

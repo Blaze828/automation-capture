@@ -251,6 +251,55 @@ async function runCmdApiTests(workspace: string, extensionPath: string): Promise
   } finally { await terminal.finishCapture(); runner.dispose(); terminal.dispose(); }
 }
 
+async function runFolderCapture(workspace: string, output: string): Promise<void> {
+  const source = path.join(workspace, '일괄 실행');
+  const destination = path.join(output, '일괄 실행');
+  await fs.mkdir(path.join(source, '하위'), { recursive: true });
+  await fs.mkdir(destination, { recursive: true });
+  const mark = "require('node:fs').appendFileSync('order.log', require('node:path').basename(__filename) + '\\n');";
+  await fs.writeFile(path.join(source, '2.js'), mark + "console.log('Error: example on stdout');");
+  await fs.writeFile(path.join(source, '10.js'), mark + "console.log('timeout'); setInterval(() => {}, 500);");
+  await fs.writeFile(path.join(source, '20.js'), mark + "\nthrow new TypeError('runtime error');");
+  await fs.writeFile(path.join(source, '30.js'), mark + "process.emitWarning('check this value');");
+  await fs.writeFile(path.join(source, 'skip.txt'), mark);
+  await fs.writeFile(path.join(source, '하위', 'skip.js'), mark);
+  const previousImage = path.join(destination, '2 실행결과.png');
+  await fs.writeFile(previousImage, 'existing image');
+
+  const assignment = vscode.workspace.getConfiguration('assignment');
+  const dialog = vscode.workspace.getConfiguration('files');
+  const previousTimeout = assignment.inspect<number>('timeoutSeconds')?.workspaceValue;
+  const previousFormat = assignment.inspect<string>('imageFormat')?.workspaceValue;
+  const previousDialog = dialog.inspect<boolean>('simpleDialog.enable')?.workspaceValue;
+  try {
+    await assignment.update('timeoutSeconds', 2, vscode.ConfigurationTarget.Workspace);
+    await assignment.update('imageFormat', 'png', vscode.ConfigurationTarget.Workspace);
+    await dialog.update('simpleDialog.enable', true, vscode.ConfigurationTarget.Workspace);
+    await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(path.join(source, '2.js')));
+    const result = await acceptPicker('assignment.runFolderAndCapture') as { ok?: boolean; error?: string } | undefined;
+    assert.notEqual(result?.ok, false, result?.error);
+    assert.equal(await fs.readFile(path.join(source, 'order.log'), 'utf8'), '2.js\n10.js\n20.js\n30.js\n');
+    assert.equal(await fs.readFile(previousImage, 'utf8'), 'existing image');
+    const expectedResults = [
+      ['2.js', '2_02.js', '2 실행결과_02.png'],
+      ['10.js', '10.js', '10 실행결과.png'],
+      ['20.js', '20.js', '20 실행결과.png'],
+      ['30.js', '30.js', '30 실행결과.png']
+    ];
+    for (const [original, saved, image] of expectedResults) {
+      assert.deepEqual(await fs.readFile(path.join(destination, saved)), await fs.readFile(path.join(source, original)));
+      assert.equal((await fs.readFile(path.join(destination, image))).subarray(1, 4).toString(), 'PNG');
+    }
+    const expectedNames = [path.basename(previousImage), ...expectedResults.flatMap(([, saved, image]) => [saved, image])];
+    assert.deepEqual((await fs.readdir(destination)).sort(), expectedNames.sort());
+    console.log('PASS folder capture: natural order and only JS copies and PNGs even when runs have issues');
+  } finally {
+    await assignment.update('timeoutSeconds', previousTimeout, vscode.ConfigurationTarget.Workspace);
+    await assignment.update('imageFormat', previousFormat, vscode.ConfigurationTarget.Workspace);
+    await dialog.update('simpleDialog.enable', previousDialog, vscode.ConfigurationTarget.Workspace);
+  }
+}
+
 async function runScenarios(): Promise<void> {
   const workspace = process.env.AUTOCAPTURE_WORKSPACE!;
   const output = process.env.AUTOCAPTURE_OUTPUT!;
@@ -422,9 +471,6 @@ async function runScenarios(): Promise<void> {
     assert.ok(entries.includes('131.js') && entries.includes('131 실행결과.png'));
     assert.ok(entries.some(name => name.endsWith('.jpg')) && entries.some(name => name.endsWith('.webp')));
     console.log('PASS real ZIP export through chapter picker; JS/PNG/JPG/WebP archive integrity');
-    const opened = await vscode.commands.executeCommand<{ok?: boolean}>('assignment.openOutputFolder');
-    assert.notEqual(opened?.ok, false);
-    console.log('PASS Open Output Folder command requested the saved chapter in the OS file manager');
   }
 
   if (process.env.AUTOCAPTURE_SAMPLE) {
@@ -445,10 +491,17 @@ async function runScenarios(): Promise<void> {
       console.log(`PASS real ${format} capture with matching file signature`);
     }
   }
+  // Folder capture can activate the OS file manager after saving. Run it after the other screenshots.
+  await runFolderCapture(workspace, output);
+  if (process.env.AUTOCAPTURE_FRESH_PHASE) {
+    const opened = await vscode.commands.executeCommand<{ok?: boolean}>('assignment.openOutputFolder');
+    assert.notEqual(opened?.ok, false);
+    console.log('PASS Open Output Folder command requested the saved chapter in the OS file manager');
+  }
   await fs.writeFile(path.join(process.env.AUTOCAPTURE_ARTIFACTS || path.dirname(workspace), 'gui-verification.json'), JSON.stringify({
     platform: process.platform, architecture: process.arch, vscode: vscode.version, extensionVersion: extension.packageJSON.version,
     completedAt: new Date().toISOString(), formats: ['png', 'jpg', 'webp'],
-    scenarios: ['normal JS', 'runtime error', 'capture again', 'automatic height', 'long output pages',
+    scenarios: ['normal JS', 'runtime error', 'capture again', 'folder capture', 'automatic height', 'long output pages',
       'long source with short output', 'repeating output', 'REPL terminal-only',
       ...(process.platform === 'darwin' && process.env.GITHUB_ACTIONS === 'true' ? ['native fullscreen with real foreign overlay excluded from window and REPL capture'] : []),
       ...(process.env.AUTOCAPTURE_FRESH_PHASE ? ['format picker', 'manual stop', 'manual capture modes', 'ZIP export', 'open output folder'] : [])],

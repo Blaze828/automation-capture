@@ -15,6 +15,7 @@ let error;
 let ack = 0;
 let size = 0;
 let tail = '';
+let stderr = '';
 let truncated = false;
 let finishing = false;
 
@@ -25,7 +26,7 @@ function publish() {
   const state = { nonce: request.nonce, ready: true, done, stopped, code, signal, error, ack,
     pid: child?.pid, hostPid: process.pid, shellPid: process.ppid,
     columns: process.stdout.columns || 100, rows: process.stdout.rows || 20,
-    truncated, tail };
+    truncated, tail, stderr: done && stderr ? stderr : undefined };
   const temp = metaPath + '.tmp';
   try {
     fs.writeFileSync(temp, JSON.stringify(state));
@@ -83,7 +84,11 @@ if (request.replay) {
     stdio: ['inherit', 'pipe', 'pipe']
   });
   child.stdout.setEncoding('utf8'); child.stderr.setEncoding('utf8');
-  child.stdout.on('data', output); child.stderr.on('data', output);
+  child.stdout.on('data', output);
+  child.stderr.on('data', text => {
+    stderr = (stderr + text).slice(-32000);
+    output(text);
+  });
   child.on('error', failure => { error = failure.message; });
   child.on('close', (exitCode, exitSignal) => {
     code = exitCode; signal = exitSignal; done = true;

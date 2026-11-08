@@ -1,87 +1,53 @@
 # Mac 설치·사용 안내
 
-**VSIX 파일 하나만 설치하면 됩니다. Node.js·Python·캡처 도구가 모두 포함되어 있습니다.** · 0.7.3
+macOS 13 이상과 데스크톱 VS Code 1.100 이상을 사용합니다. VSIX 하나에 Node.js, Python, 캡처 도구가 포함됩니다.
 
-기존 Python이나 Conda 버전에 맞춰 명령어를 실행할 필요가 없습니다.
+[전체 사용법](README.md) · [Windows 안내](README.windows.md)
 
-[전체 안내](README.md) · [Windows 안내](README.windows.md)
+## 설치와 업데이트
 
-## 처음 설치하기
+**Apple 메뉴 → 이 Mac에 관하여**에서 칩 또는 프로세서를 확인합니다.
 
-**Apple 메뉴 → 이 Mac에 관하여**에서 칩 또는 프로세서를 확인하세요.
-
-| 표시된 종류 | 받을 파일 |
+| 실행 환경 | VSIX 파일 이름 끝부분 |
 |---|---|
-| **Apple M시리즈** | **[M시리즈용 다운로드](https://github.com/Blaze828/automation-capture/releases/download/v0.7.3/js-assignment-autocapture-0.7.3-darwin-arm64.vsix)** |
-| **Intel** | **[Intel용 다운로드](https://github.com/Blaze828/automation-capture/releases/download/v0.7.3/js-assignment-autocapture-0.7.3-darwin-x64.vsix)** |
+| Apple Silicon용 VS Code | `darwin-arm64.vsix` |
+| Intel용 VS Code · Rosetta로 실행하는 Intel용 VS Code 포함 | `darwin-x64.vsix` |
 
-1. 내 Mac에 맞는 **`.vsix` 파일 하나**를 다운로드합니다.
-2. VS Code에서 **확장 → 위쪽 ⋯ → VSIX에서 설치…**를 누릅니다.
-3. 다운로드한 파일을 선택합니다. 다시 로드 안내가 나오면 누릅니다.
+1. 공개 배포본은 GitHub 릴리스의 **Assets**에서 받습니다. 폴더 일괄 실행을 쓰려면 현재 소스에서 빌드한 Mac용 VSIX를 선택합니다. [배포본과 소스 빌드 안내](README.md#설치)
+2. VS Code 왼쪽의 **확장 → ⋯ → VSIX에서 설치…**에서 파일을 선택합니다.
+3. **다시 로드** 안내가 나오면 누릅니다.
 
-macOS 13 이상과 [VS Code](https://code.visualstudio.com/download) 1.100 이상을 사용합니다. **터미널 명령이나 Python 경로 설정은 필요 없습니다.**
+## 첫 캡처 때 Mac 권한 허용
 
-## 실행하기
+권한 안내가 나오면 **시스템 설정 → 개인정보 보호 및 보안**에서 안내에 표시된 앱(VS Code 또는 Python)을 허용합니다.
 
-1. **파일 → 폴더 열기**로 과제 폴더를 엽니다.
-2. 실행할 **`.js` 파일**을 클릭합니다.
-3. **Control+Option+Q**를 누릅니다.
-4. 저장 폴더와 이미지 형식을 물으면 선택합니다.
-
-실행이 끝나면 **JS 원본과 결과 이미지가 자동 저장**됩니다. 같은 과제 폴더에서는 저장 설정을 기억합니다. 촬영이 끝날 때까지 VS Code 창을 전면에 두세요.
-
-### 첫 캡처 때 Mac 권한 허용
-
-권한 안내가 나오면 **시스템 설정 → 개인정보 보호 및 보안**에서 요청한 앱(VS Code 또는 Python)을 허용하세요.
-
-| 항목 | 필요한 기능 |
+| 권한 | 쓰는 곳 |
 |---|---|
-| **화면 및 시스템 오디오 기록** 또는 **화면 기록** | 실제 창 촬영 |
-| **손쉬운 사용** | 터미널 높이 조절·REPL 영역 캡처 |
+| **화면 기록** 또는 **화면 및 시스템 오디오 기록** | 실제 VS Code 창 캡처 |
+| **손쉬운 사용** | 터미널 높이 조절, REPL 출력 영역 확인 |
 
-화면 기록 권한을 바꾼 뒤에는 **VS Code 완전히 종료 → 다시 열기 → Control+Option+Q** 순서로 재시도합니다. 이 권한은 macOS에서 직접 허용해야 합니다.
-
-## 저장 폴더 선택·변경
-
-VS Code **맨 아래 `저장 폴더 선택` → 원하는 폴더 → `이 폴더에 저장`** 순서로 누릅니다. 설정 후 버튼에 현재 폴더 이름이 표시되고, 다시 누르면 변경할 수 있습니다. **Control+Option+S**로 바로 열어도 됩니다.
-
-`제출` 같은 상위 폴더만 고르면 `6장` 등 장별 폴더는 자동으로 만들어집니다. 선택한 위치는 같은 과제 폴더에서 기억합니다. 이 버튼은 **0.7.2 이상**에서 제공됩니다.
+권한을 변경한 뒤 VS Code를 **완전히 종료하고 다시 실행**합니다.
 
 ## 자주 쓰는 단축키
 
-Mac의 **Control은 ⌃, Option은 ⌥**입니다.
+Mac의 **Control은 ⌃**, **Option은 ⌥**입니다.
 
-| 할 일 | 단축키 |
-|---|---|
-| **실행하고 자동 저장** | **Control+Option+Q** |
-| 현재 화면 한 장 더 저장 | Control+Option+W |
-| PNG / JPG / WebP 변경 | Control+Option+F |
-| **저장 폴더 선택·변경** | **Control+Option+S** |
+| 할 일 | 단축키 | 사용 방법 |
+|---|---|---|
+| 한 파일 실행 | `Control+Option+Q` | 과제 폴더를 열고 실행할 `.js` 탭을 선택합니다. |
+| 폴더 일괄 실행 | `Control+Option+Shift+B` | 실행할 원본 폴더를 고릅니다. 바로 아래의 `.js` 파일을 이름순으로 처리합니다. |
+| 실행 중단 | `Control+Option+X` | 실행 중에 누릅니다. 이미 저장한 결과는 그대로 사용할 수 있습니다. |
+| 저장 폴더 선택 | `Control+Option+S` | `제출` 같은 상위 폴더를 고릅니다. 상태 표시줄의 **저장 폴더** 버튼으로도 열 수 있습니다. |
+| 이미지 형식 변경 | `Control+Option+F` | PNG·JPG·WebP 중 고릅니다. |
 
-<details>
-<summary><b>추가 단축키</b></summary>
+저장 위치와 형식을 아직 정하지 않았다면 첫 실행에서 물어봅니다. 촬영이 끝날 때까지 VS Code 창을 전면에 두세요.
 
-| 할 일 | 단축키 |
-|---|---|
-| JS를 한 줄씩 입력하기(REPL 시작) | Control+Option+E |
-| REPL 출력만 저장 | Control+Option+D |
-| 실행 중단 | Control+Option+X |
-| 직접 분할 캡처 | Control+Option+A |
+일괄 실행이 끝나면 저장된 JS와 캡처 이미지가 있는 결과 폴더를 Finder에서 엽니다. Finder에서 같은 경로를 확인할 수 있으면 기존 창을 그대로 두고, 그 외에는 Finder의 기본 열기 동작을 사용합니다. 문제가 생겼을 때는 VS Code 알림의 **문제 보기**를 눌러 **출력 → Assignment 실행 문제**에서 원인을 확인합니다. [일괄 실행 안내](README.md#폴더의-javascript-파일-일괄-실행)
 
-REPL은 **E로 시작 → JS 입력 → D로 저장** 순서입니다.
+## 잘 안될 때
 
-</details>
+- 단축키가 동작하지 않으면 `Command+Shift+P`에서 `Assignment: Run and Capture` 또는 `Assignment: Run Folder and Capture`를 실행합니다.
+- 권한 오류가 나오면 화면 기록과 손쉬운 사용 권한을 확인하고 VS Code를 완전히 종료한 뒤 다시 엽니다.
+- Python 모듈 오류가 나오면 Mac 아키텍처에 맞는 VSIX를 다시 설치하고 VS Code 설정에서 `assignment.useBundledRuntime`이 켜져 있는지 확인합니다.
 
-<details>
-<summary><b>잘 안될 때</b></summary>
-
-- 단축키가 안 되면 **Command+Shift+P → Assignment: Run and Capture**로 실행하세요.
-- **0.7.2에서 “다른 창 또는 대화상자가 겹쳐 있습니다”가 계속 나오면 0.7.3으로 업데이트**하세요. 창 전용 촬영을 가로막던 전체 화면 겹침 검사를 분리했습니다. 높이 조절 경계선이 가려지면 높이를 유지하고 캡처합니다.
-- 캡처 권한 오류는 위의 Mac 권한을 확인하고 VS Code를 완전히 종료한 뒤 다시 여세요.
-- 예전 Python/Pillow 오류가 계속되면 **0.7.2 이상**인지 확인하고 다시 로드하세요. 기본 설정은 확장에 포함된 실행 환경을 사용합니다.
-- Rosetta로 Intel VS Code를 사용한다면 **Intel용 확장**을 설치하세요.
-- 다운로드가 안 되면 [릴리스 페이지](https://github.com/Blaze828/automation-capture/releases/latest)의 **Assets**에서 받으세요.
-
-</details>
-
-[기능 전체 보기](README.md#4-주요-기능) · [저장 위치·ZIP 만들기](README.md#5-결과는-어디에-저장되나요) · [개발·고급 설정](docs/DEVELOPMENT.md)
+[전체 단축키](README.md#자주-쓰는-단축키) · [저장 위치와 ZIP 제출](README.md#결과-저장과-zip-제출) · [문제 해결](README.md#문제-해결)

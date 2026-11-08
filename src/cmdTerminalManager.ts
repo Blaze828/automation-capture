@@ -14,7 +14,7 @@ import { terminalNodeEnvironment } from './bundledRuntime';
 export interface CmdState {
   nonce: string; ready: boolean; done: boolean; stopped: boolean; code: number | null;
   signal: NodeJS.Signals | null; error?: string; ack: number; pid?: number; hostPid?: number;
-  columns: number; rows: number; truncated: boolean; tail: string;
+  columns: number; rows: number; truncated: boolean; tail: string; stderr?: string;
 }
 
 export class CmdTerminalManager implements CaptureTerminal, vscode.Disposable {
