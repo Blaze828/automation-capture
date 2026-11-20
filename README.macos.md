@@ -48,6 +48,7 @@ Mac의 **Control은 ⌃**, **Option은 ⌥**입니다.
 
 - 단축키가 동작하지 않으면 `Command+Shift+P`에서 `Assignment: Run and Capture` 또는 `Assignment: Run Folder and Capture`를 실행합니다.
 - 권한 오류가 나오면 화면 기록과 손쉬운 사용 권한을 확인하고 VS Code를 완전히 종료한 뒤 다시 엽니다.
+- REPL 캡처에서 터미널의 접근성 영역을 확인할 수 없다고 나오면 VS Code를 완전히 종료한 뒤 `code --force-renderer-accessibility`로 엽니다.
 - Python 모듈 오류가 나오면 Mac 아키텍처에 맞는 VSIX를 다시 설치하고 VS Code 설정에서 `assignment.useBundledRuntime`이 켜져 있는지 확인합니다.
 
 [전체 단축키](README.md#자주-쓰는-단축키) · [저장 위치와 ZIP 제출](README.md#결과-저장과-zip-제출) · [문제 해결](README.md#문제-해결)

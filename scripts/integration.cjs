@@ -53,6 +53,7 @@ const { createWriteStream, writeFileSync } = require('node:fs');
   const mainPidFile = path.join(artifacts, 'main.pid');
   const child = spawn(executable,
     [workspace, '--user-data-dir', profile, '--extensions-dir', process.env.AUTOCAPTURE_INSTALLED_EXTENSIONS || path.join(artifacts, 'extensions'),
+      ...(process.platform === 'darwin' ? ['--force-renderer-accessibility'] : []),
       ...(process.env.AUTOCAPTURE_TEST_DRIVER ? [] : ['--disable-extensions']), '--skip-welcome', '--skip-release-notes', '--new-window',
       `--extensionDevelopmentPath=${process.env.AUTOCAPTURE_TEST_DRIVER || process.env.AUTOCAPTURE_PACKAGED_ROOT || root}`, `--extensionTestsPath=${path.join(root, 'out', 'test', 'integration', 'index.js')}`],
     { shell: false, env: { ...process.env, ...(process.env.AUTOCAPTURE_BUNDLED_TEST ? {
