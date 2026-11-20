@@ -21,11 +21,13 @@ export class CaptureManager {
         });
     });
   }
-  async bind(document: vscode.TextDocument): Promise<WindowBinding> {
+  async bind(document?: vscode.TextDocument): Promise<WindowBinding> {
     nativePlatform();
     if (!vscode.window.state.focused) { throw new Error('대상 VS Code 창으로 돌아와 캡처를 다시 실행하세요.'); }
-    await delay(200); // Allow a newly revealed editor's native window title to settle.
-    const result = await this.python(['--probe', '--title', path.basename(document.fileName)]);
+    if (document) { await delay(200); } // Allow a newly revealed editor's native window title to settle.
+    const target = document ? ['--title', path.basename(document.fileName)]
+      : ['--terminal-only', '--pid', process.env.VSCODE_PID ?? String(process.ppid)];
+    const result = await this.python(['--probe', ...target]);
     if (!vscode.window.state.focused) { throw new Error('창 확인 중 포커스가 변경되었습니다. 캡처를 다시 실행하세요.'); }
     return JSON.parse(result) as WindowBinding;
   }
@@ -51,7 +53,7 @@ export class CaptureManager {
     };
     await vscode.commands.executeCommand('notifications.hideToasts');
     await delay(this.config.captureDelayMs);
-    if (!vscode.window.state.focused) { throw new Error('다른 프로그램으로 전환되어 캡처를 취소했습니다. VS Code에서 Capture Again을 실행하세요.'); }
+    if (!vscode.window.state.focused) { throw new Error(`다른 창으로 전환되어 캡처를 취소했습니다. VS Code에서 ${terminal ? 'Capture REPL' : 'Capture Again'}을 실행하세요.`); }
     checkTerminal();
     const temp = path.join(folder, `.${randomUUID()}.capture.tmp`);
     try {

@@ -102,16 +102,22 @@ async function runApiTests(workspace: string, output: string): Promise<void> {
     const edit = new vscode.WorkspaceEdit(); edit.insert(doc.uri, new vscode.Position(doc.lineCount, 0), '\n// 자동 저장 검증\n');
     assert.ok(await vscode.workspace.applyEdit(edit)); assert.ok(doc.isDirty);
     await files.document(false); assert.equal(doc.isDirty, false);
-    const submission = await files.prepare(doc, 'run'); await files.copyCode(submission);
+    const submission = await files.prepare(doc); await files.copyCode(submission);
     assert.equal(await fs.readFile(submission.code, 'utf8'), doc.getText());
     console.log('PASS API dirty JS auto-save and original copy');
     await fs.writeFile(submission.code, '// previous submission');
     const versions = new FileManager(config, async () => '새 버전으로 저장');
-    const version = await versions.prepare(doc, 'run'); await versions.copyCode(version);
+    const version = await versions.prepare(doc); await versions.copyCode(version);
     assert.equal(path.basename(version.code), '131_02.js'); assert.equal(path.basename(version.image), '131 실행결과_02.png');
     assert.equal(await fs.readFile(submission.code, 'utf8'), '// previous submission');
-    await assert.rejects(new FileManager(config, async () => undefined).prepare(doc, 'run'), /취소/);
-    const replace = new FileManager(config, async () => '덮어쓰기'); await replace.copyCode(await replace.prepare(doc, 'run'));
+    await assert.rejects(new FileManager(config, async () => undefined).prepare(doc), /취소/);
+    const replace = new FileManager(config, async () => '덮어쓰기'); await replace.copyCode(await replace.prepare(doc));
+    const replImage = path.join(output, '기존 REPL.png');
+    await fs.writeFile(replImage, 'previous capture');
+    try {
+      assert.deepEqual(await versions.prepareImage(replImage), { image: path.join(output, '기존 REPL_02.png'), overwrite: false });
+      assert.deepEqual(await replace.prepareImage(replImage), { image: replImage, overwrite: true });
+    } finally { await fs.rm(replImage, { force: true }); }
     assert.equal(await fs.readFile(submission.code, 'utf8'), doc.getText());
     console.log('PASS API filename conflicts: overwrite/version/cancel preserve expected files');
     for (let i = 0; i < 2; i++) {
@@ -192,7 +198,7 @@ async function runApiTests(workspace: string, output: string): Promise<void> {
     const longSource = path.join(workspace, '4장', '긴 코드.js');
     await fs.writeFile(longSource, Array.from({length: 160}, (_, i) => `console.log('줄 ${i}');`).join('\n'));
     const longDoc = await vscode.workspace.openTextDocument(longSource); await vscode.window.showTextDocument(longDoc);
-    const longSubmission = await files.prepare(longDoc, 'run', true);
+    const longSubmission = await files.prepare(longDoc, true);
     await terminal.create(); terminal.write(Array.from({length: 100}, (_, i) => `한글 출력 ${i}`).join('\n'));
     const retained = terminal.text;
     const ranges: number[] = [];
@@ -258,6 +264,44 @@ async function runCmdApiTests(workspace: string, extensionPath: string): Promise
     assert.ok((await terminal.refresh())?.done, 'replay does not execute the JS again');
     assert.ok(terminal.dimensions.rows > 0 && rows > 0);
     console.log('PASS API real CMD run/output/dimensions/replay; no completion banner; prompt stays alive');
+    await terminal.finishCapture();
+
+    const repeating = path.join(workspace, '4장', '사용자 중단.js');
+    await fs.writeFile(repeating, "console.log('첫 출력'); let count = 0; setInterval(() => console.log('반복 출력', ++count), 150);");
+    const batch = new vscode.CancellationTokenSource();
+    const interruptible = new CmdRunManager(terminal, {nodePath: config.nodePath, timeoutMs: 10_000});
+    try {
+      const pending = interruptible.run(repeating, async () => {}, batch.token);
+      for (let i = 0; i < 60 && !terminal.tail.includes('반복 출력 2'); i++) { await delay(80); }
+      assert.match(terminal.tail, /반복 출력 2/);
+      firstCmd!.sendText('\x03', false);
+      const stopped = await pending;
+      assert.equal(stopped.stopReason, 'manual');
+      await terminal.fitRepresentative();
+      assert.equal(terminal.captureText, terminal.text);
+      assert.match(terminal.captureText, /첫 출력/);
+      assert.doesNotMatch(terminal.captureText, /중단된 실행/);
+      await terminal.finishCapture();
+      assert.equal((await interruptible.run(secondSource, async () => {}, batch.token)).code, 0);
+      assert.equal(await vscode.window.activeTerminal?.processId, cmdPid);
+    } finally { await terminal.finishCapture(); interruptible.dispose(); batch.dispose(); }
+    console.log('PASS API Ctrl+C keeps the complete output and runs the next file in the same shell');
+
+    let openPrompt: ((choice?: string) => void) | undefined;
+    const promptRunner = new CmdRunManager(terminal, {nodePath: config.nodePath, timeoutMs: 250},
+      () => new Promise(resolve => { openPrompt = resolve; }));
+    try {
+      const pending = promptRunner.run(repeating, async () => {});
+      for (let i = 0; i < 60 && !openPrompt; i++) { await delay(80); }
+      assert.ok(openPrompt, 'timeout prompt opened');
+      promptRunner.stop();
+      const stopped = await pending;
+      assert.equal(stopped.stopReason, 'manual');
+      await terminal.fitRepresentative();
+      assert.match(terminal.captureText, /첫 출력/);
+      assert.equal(terminal.captureText, terminal.text);
+    } finally { openPrompt?.(); await terminal.finishCapture(); promptRunner.dispose(); }
+    console.log('PASS API manual stop captures the live output while the timeout prompt is open');
   } finally { await terminal.finishCapture(); runner.dispose(); terminal.dispose(); }
 }
 
@@ -268,7 +312,10 @@ async function runFolderCapture(workspace: string, output: string): Promise<void
   await fs.mkdir(destination, { recursive: true });
   const mark = "require('node:fs').appendFileSync('order.log', require('node:path').basename(__filename) + '\\n');";
   await fs.writeFile(path.join(source, '2.js'), mark + "console.log('Error: example on stdout');");
-  await fs.writeFile(path.join(source, '10.js'), mark + "console.log('timeout'); setInterval(() => {}, 500);");
+  const manualImage = path.join(destination, '5 실행결과.png');
+  const manualReady = path.join(source, 'manual.ready');
+  await fs.writeFile(path.join(source, '5.js'), mark + "console.log('첫 출력'); setInterval(() => { console.log('반복 출력'); require('node:fs').writeFileSync('manual.ready', 'ready'); }, 250);");
+  await fs.writeFile(path.join(source, '10.js'), mark + `const fs = require('node:fs'); fs.writeFileSync('capture-order.log', String(fs.existsSync(${JSON.stringify(manualImage)})));\nconsole.log('timeout'); setInterval(() => {}, 500);`);
   await fs.writeFile(path.join(source, '20.js'), mark + "\nthrow new TypeError('runtime error');");
   await fs.writeFile(path.join(source, '30.js'), mark + "process.emitWarning('check this value');");
   await fs.writeFile(path.join(source, 'skip.txt'), mark);
@@ -286,12 +333,18 @@ async function runFolderCapture(workspace: string, output: string): Promise<void
     await assignment.update('imageFormat', 'png', vscode.ConfigurationTarget.Workspace);
     await dialog.update('simpleDialog.enable', true, vscode.ConfigurationTarget.Workspace);
     await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(path.join(source, '2.js')));
-    const result = await acceptPicker('assignment.runFolderAndCapture') as { ok?: boolean; error?: string } | undefined;
+    const pending = acceptPicker('assignment.runFolderAndCapture');
+    for (let i = 0; i < 150 && !await fs.stat(manualReady).catch(() => false); i++) { await delay(80); }
+    assert.ok(await fs.stat(manualReady));
+    await vscode.commands.executeCommand('assignment.stopRun');
+    const result = await pending as { ok?: boolean; error?: string } | undefined;
     assert.notEqual(result?.ok, false, result?.error);
-    assert.equal(await fs.readFile(path.join(source, 'order.log'), 'utf8'), '2.js\n10.js\n20.js\n30.js\n');
+    assert.equal(await fs.readFile(path.join(source, 'order.log'), 'utf8'), '2.js\n5.js\n10.js\n20.js\n30.js\n');
+    assert.equal(await fs.readFile(path.join(source, 'capture-order.log'), 'utf8'), 'true');
     assert.equal(await fs.readFile(previousImage, 'utf8'), 'existing image');
     const expectedResults = [
       ['2.js', '2_02.js', '2 실행결과_02.png'],
+      ['5.js', '5.js', '5 실행결과.png'],
       ['10.js', '10.js', '10 실행결과.png'],
       ['20.js', '20.js', '20 실행결과.png'],
       ['30.js', '30.js', '30 실행결과.png']
@@ -302,7 +355,7 @@ async function runFolderCapture(workspace: string, output: string): Promise<void
     }
     const expectedNames = [path.basename(previousImage), ...expectedResults.flatMap(([, saved, image]) => [saved, image])];
     assert.deepEqual((await fs.readdir(destination)).sort(), expectedNames.sort());
-    console.log('PASS folder capture: natural order and only JS copies and PNGs even when runs have issues');
+    console.log('PASS folder capture: manual stop saves before the next file, and failures preserve run order');
   } finally {
     await assignment.update('timeoutSeconds', previousTimeout, vscode.ConfigurationTarget.Workspace);
     await assignment.update('imageFormat', previousFormat, vscode.ConfigurationTarget.Workspace);
@@ -311,8 +364,8 @@ async function runFolderCapture(workspace: string, output: string): Promise<void
 }
 
 async function captureExistingRepl(workspace: string, output: string): Promise<void> {
-  const document = await vscode.workspace.openTextDocument(path.join(workspace, '4장', '131.js'));
-  await vscode.window.showTextDocument(document, { preview: false });
+  await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+  assert.equal(vscode.window.activeTextEditor, undefined);
   const windows = process.platform === 'win32';
   const repl = vscode.window.createTerminal({ cwd: workspace, location: vscode.TerminalLocation.Panel,
     shellPath: windows ? process.env.ComSpec || 'C:\\Windows\\System32\\cmd.exe' : '/bin/zsh',
@@ -338,18 +391,31 @@ async function captureExistingRepl(workspace: string, output: string): Promise<v
     assert.equal(vscode.window.activeTerminal, repl);
     const opened: vscode.Terminal[] = [];
     const listener = vscode.window.onDidOpenTerminal(terminal => opened.push(terminal));
-    const folder = path.join(output, '4장');
     try {
+      await fs.mkdir(output, { recursive: true });
+      const previous = (await fs.readdir(output)).sort();
       const cancelled = await answerReplName(true);
       assert.equal(cancelled?.error, '사용자가 취소했습니다.');
-      assert.deepEqual(await fs.readdir(folder), [], 'cancel discards the staged image and skips saving the source');
+      assert.deepEqual((await fs.readdir(output)).sort(), previous, 'cancel discards the staged image');
       const result = await answerReplName();
       assert.notEqual(result?.ok, false, result?.error);
+      assert.deepEqual((await fs.readdir(output)).sort(), [...previous, 'REPL.png'].sort(), 'capture saves only the image with no editor open');
+      assert.equal(vscode.window.activeTextEditor, undefined);
+
+      const chapter = 'REPL 예제';
+      const source = path.join(workspace, chapter, 'example.js');
+      await fs.mkdir(path.dirname(source), { recursive: true });
+      await fs.writeFile(source, 'console.log(42);');
+      const document = await vscode.workspace.openTextDocument(source);
+      await vscode.window.showTextDocument(document, { preview: false });
+      const withEditor = await answerReplName();
+      assert.notEqual(withEditor?.ok, false, withEditor?.error);
+      assert.deepEqual(await fs.readdir(path.join(output, chapter)), ['example REPL.png'], 'capture saves no JS when an editor is open');
     } finally { listener.dispose(); }
     assert.equal(opened.length, 0, 'capture does not open a terminal');
     assert.equal(vscode.window.activeTerminal, repl);
     assert.equal(await repl.processId, pid);
-    const image = await fs.readFile(path.join(folder, '131 REPL.png'));
+    const image = await fs.readFile(path.join(output, 'REPL.png'));
     assert.equal(image.subarray(1, 4).toString(), 'PNG');
     repl.sendText(`replValue++; ${writeValue}`);
     await waitForValue('43');
@@ -502,7 +568,7 @@ async function runScenarios(): Promise<void> {
     const stopped = await pending;
     assert.notEqual(stopped?.ok, false, stopped?.error);
     assert.ok((await fs.stat(path.join(output, '4장', '수동 중단 실행결과.png'))).size > 1000);
-    console.log('PASS manual Stop Run command before timeout; representative screenshot saved');
+    console.log('PASS manual Stop Run command saves output produced before the stop');
     for (const mode of [0, 1, 2]) {
       const before = (await fs.readdir(path.join(output, '4장'))).filter(name => name.endsWith('.png')).length;
       const result = await acceptPicker('assignment.captureMultiple', mode);

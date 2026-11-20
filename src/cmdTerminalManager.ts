@@ -11,8 +11,11 @@ import { representativeOutput } from './outputAnalysis';
 import { nativePlatform } from './platform';
 import { terminalNodeEnvironment } from './bundledRuntime';
 
+export type CmdStopReason = 'manual' | 'timeout' | 'cancelled';
+
 export interface CmdState {
   nonce: string; ready: boolean; done: boolean; stopped: boolean; code: number | null;
+  stopReason?: CmdStopReason;
   signal: NodeJS.Signals | null; error?: string; ack: number; pid?: number; hostPid?: number;
   columns: number; rows: number; truncated: boolean; tail: string; stderr?: string;
 }
@@ -103,19 +106,18 @@ export class CmdTerminalManager implements CaptureTerminal, vscode.Disposable {
       this.show();
       await vscode.commands.executeCommand('workbench.action.terminal.focus');
       await vscode.commands.executeCommand('workbench.action.terminal.clear');
-      // Fixed command: paths and source arguments are read from JSON, never interpolated into CMD input.
-      this.terminal!.sendText(platform.startCommand, true);
     } else {
       // Reuse only this owned shell; do not select a user's unrelated terminal by its name.
       this.terminal = vscode.window.createTerminal({ name: platform.shellName, cwd: path.dirname(this.source),
         shellPath: process.platform === 'win32' ? process.env.ComSpec || 'C:\\Windows\\System32\\cmd.exe' : '/bin/zsh',
-        shellArgs: process.platform === 'win32' ? '/d /q /v:off /k ""%AUTOCAPTURE_BOOTSTRAP%""' : ['-f', '-i'],
+        shellArgs: process.platform === 'win32' ? ['/d', '/q', '/v:off'] : ['-f', '-i'],
         env: { ...terminalNodeEnvironment(this.nodePath), AUTOCAPTURE_NODE: this.nodePath, AUTOCAPTURE_REQUEST: request, AUTOCAPTURE_FOLDER: this.folder,
           AUTOCAPTURE_BOOTSTRAP: path.join(this.extensionPath, 'runtime', platform.bootstrap),
           AUTOCAPTURE_HELPER: path.join(this.extensionPath, 'runtime', 'cmd-host.cjs') },
         location: vscode.TerminalLocation.Panel });
-      if (process.platform === 'darwin') { this.terminal.sendText(platform.startCommand, true); }
     }
+    // Fixed command: paths and source arguments are read from JSON, never interpolated into terminal input.
+    this.terminal!.sendText(platform.startCommand, true);
     this.show();
     const deadline = Date.now() + 15000;
     while (Date.now() < deadline) {
@@ -136,7 +138,7 @@ export class CmdTerminalManager implements CaptureTerminal, vscode.Disposable {
   async ensureReplay(): Promise<void> {
     if (!this.activeHost) { await this.open(true); }
   }
-  private control(values: { display?: string; stop?: boolean; finish?: boolean }): Promise<void> {
+  private control(values: { display?: string; stop?: CmdStopReason; finish?: boolean }): Promise<void> {
     const action = this.queue.then(async () => {
       if (!this.folder || !this.activeHost) { return; }
       const seq = ++this.sequence;
@@ -162,7 +164,7 @@ export class CmdTerminalManager implements CaptureTerminal, vscode.Disposable {
   }
   async display(text: string): Promise<void> { await this.control({ display: text }); }
   async restore(): Promise<void> { await this.display(this.captureText); }
-  async stop(): Promise<void> { await this.control({ stop: true }); }
+  async stop(reason: CmdStopReason): Promise<void> { await this.control({ stop: reason }); }
   useRepresentative(): void { this.representative = true; }
   async fitRepresentative(): Promise<void> {
     if (this.representative) {
@@ -175,7 +177,7 @@ export class CmdTerminalManager implements CaptureTerminal, vscode.Disposable {
     if (!this.activeHost) { return; }
     try {
       if (!this.state?.done) {
-        await this.control({ stop: true });
+        await this.stop('cancelled');
         const deadline = Date.now() + 5000;
         while (!(await this.refresh())?.done && Date.now() < deadline) { await delay(80); }
       }

@@ -29,7 +29,9 @@ def main():
     from PIL import Image
     if args.probe:
         pid = frontmost_pid()
-        window = select_window(window_list(), pid, args.title)
+        if args.terminal_only and pid != args.pid:
+            raise RuntimeError('캡처를 요청한 VS Code 창에서 REPL 터미널을 선택하세요.')
+        window = select_window(window_list(), pid, args.title, terminal_only=args.terminal_only)
         print(json.dumps({'hwnd': int(window['kCGWindowNumber']), 'pid': pid}))
         return
     if not args.hwnd or not args.pid or not args.output:

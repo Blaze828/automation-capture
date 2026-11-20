@@ -4,8 +4,8 @@ import * as fs from 'fs/promises';
 import { randomUUID } from 'crypto';
 import { ConfigManager } from './configManager';
 import { ImageFormat } from './imageFormat';
-import { Cancelled, CaptureKind, Submission } from './types';
-import { exists, publishFile, versioned } from './storage';
+import { Cancelled, Submission } from './types';
+import { exists, nextAvailable, publishFile, versioned } from './storage';
 export { exists, publishFile, versioned } from './storage';
 const samePath = (a: string, b: string): boolean => process.platform === 'win32'
   ? path.resolve(a).toLowerCase() === path.resolve(b).toLowerCase() : path.resolve(a) === path.resolve(b);
@@ -45,22 +45,22 @@ export class FileManager {
     if (!chapter) { throw new Error('파일을 장 폴더 안에 저장하세요.'); }
     return path.join(await this.config.outputFolder(), chapter);
   }
-  async prepare(document: vscode.TextDocument, kind: CaptureKind, again = false,
-    options?: { folder: string; imageFormat: ImageFormat; imageName?: string; autoVersion?: boolean }): Promise<Submission> {
+  async prepare(document: vscode.TextDocument, again = false,
+    batch?: { folder: string; imageFormat: ImageFormat }): Promise<Submission> {
     const source = document.uri.fsPath;
-    const folder = options?.folder ?? await this.submissionFolder(document);
+    const folder = batch?.folder ?? await this.submissionFolder(document);
     await fs.mkdir(folder, { recursive: true });
     const base = path.basename(source, path.extname(source));
     const code = path.join(folder, `${base}.js`);
-    const format = options?.imageFormat ?? await this.config.imageFormat();
-    let image = path.join(folder, options?.imageName ?? `${base} ${kind === 'repl' ? 'REPL' : '실행결과'}.${format}`);
+    const format = batch?.imageFormat ?? await this.config.imageFormat();
+    let image = path.join(folder, `${base} 실행결과.${format}`);
     if (again) { let n = 2; const initial = image; do { image = versioned(initial, n++); } while (await exists(image)); }
     const sameSource = samePath(code, source);
     const unchanged = sameSource || (await exists(code) && (await fs.readFile(code)).equals(await fs.readFile(source)));
     let destinationCode = code;
     let overwrite = false;
     if ((!unchanged && await exists(code)) || await exists(image)) {
-      const decision = options?.autoVersion ? '새 버전으로 저장' : await this.chooseConflict();
+      const decision = batch ? '새 버전으로 저장' : await this.chooseConflict();
       if (!decision || decision === '취소') { throw new Cancelled(); }
       overwrite = decision === '덮어쓰기';
       if (!overwrite) {
@@ -70,6 +70,13 @@ export class FileManager {
       }
     }
     return { source, folder, code: destinationCode, image, overwrite, keepCode: unchanged && destinationCode === code };
+  }
+  async prepareImage(image: string): Promise<{image: string; overwrite: boolean}> {
+    if (!await exists(image)) { return { image, overwrite: false }; }
+    const decision = await this.chooseConflict();
+    if (!decision || decision === '취소') { throw new Cancelled(); }
+    if (decision === '덮어쓰기') { return { image, overwrite: true }; }
+    return { image: await nextAvailable(image), overwrite: false };
   }
   async copyCode(submission: Submission): Promise<void> {
     if (samePath(submission.code, submission.source)) { return; }

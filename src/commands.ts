@@ -39,7 +39,7 @@ export function registerCommands(context: vscode.ExtensionContext): void {
   let busy = false;
   let batchRun: vscode.CancellationTokenSource | undefined;
   let issuesOutput: vscode.OutputChannel | undefined;
-  let latest: Submission | undefined;
+  let latestFolder: string | undefined;
   const updateFolderStatus = () => {
     const folder = config.settings.get<string>('outputFolder', '');
     folderStatus.text = folder ? `$(folder-opened) 저장 폴더: ${path.basename(folder) || folder}` : '$(folder-opened) 저장 폴더 선택';
@@ -53,7 +53,7 @@ export function registerCommands(context: vscode.ExtensionContext): void {
     vscode.window.onDidChangeActiveTextEditor(editor => files.remember(editor)),
     vscode.workspace.onDidChangeConfiguration(event => {
       if (event.affectsConfiguration('assignment.outputFolder')) {
-        latest = undefined;
+        latestFolder = undefined;
         updateFolderStatus();
       }
     }));
@@ -64,7 +64,7 @@ export function registerCommands(context: vscode.ExtensionContext): void {
     const child = entries.find(entry => entry.isFile()) ?? entries[0];
     await vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(child ? path.join(folder, child.name) : folder));
   };
-  const notify = (submission: Submission, warning = '') => {
+  const notify = (submission: Pick<Submission, 'folder' | 'image'>, warning = '') => {
     void vscode.window.showInformationMessage(`저장 완료: ${submission.image}${warning}`, '폴더 열기').then(action => { if (action) { void openFolder(submission.folder); } });
   };
   const finishBatch = async (folder: string, source: string, summary: string, issues: FileIssues[], autoOpen: boolean) => {
@@ -119,7 +119,7 @@ export function registerCommands(context: vscode.ExtensionContext): void {
     if (showTerminal) { terminal.show(); }
     const binding = await capture.bind(document);
     await files.copyCode(submission);
-    latest = submission;
+    latestFolder = submission.folder;
     try { await capture.capture(binding, submission.image, submission.overwrite); }
     catch (error) { throw new Error(`JS 파일은 저장되었습니다: ${submission.code}\n${errorMessage(error)}\nCapture Again으로 재시도할 수 있습니다.`); }
   };
@@ -129,7 +129,7 @@ export function registerCommands(context: vscode.ExtensionContext): void {
     else { await layout.showCode(document); }
     const binding = await capture.bind(document);
     // Copy the exact saved source before running it; never execute a submission copy.
-    await files.copyCode(submission); latest = submission;
+    await files.copyCode(submission); latestFolder = submission.folder;
     const executedVersion = document.version;
     let manualSaved = false;
     try {
@@ -137,6 +137,7 @@ export function registerCommands(context: vscode.ExtensionContext): void {
         if (document.version !== executedVersion) { throw new Error('실행 중 원본 코드가 변경되었습니다. 다시 실행한 뒤 캡처하세요.'); }
         await capture.capture(binding, submission.image, submission.overwrite); manualSaved = true; notify(submission, ' (실행 중 수동 캡처)');
       }, batch?.token);
+      const representative = result.stopReason === 'timeout';
       batch?.onRun(result, terminal.wasTruncated);
       if (document.version !== executedVersion) { throw new Error('실행 중 원본 코드가 변경되어 자동 캡처를 중단했습니다. 원본을 다시 실행하세요. 실행 직전 JS 복사본은 유지됩니다.'); }
       if (manualSaved) { submission.image = await nextAvailable(submission.image); submission.overwrite = false; }
@@ -150,10 +151,10 @@ export function registerCommands(context: vscode.ExtensionContext): void {
         await terminal.fitRepresentative();
         await vscode.commands.executeCommand('workbench.action.terminal.scrollToTop');
         unchanged();
-        if (terminal.wasTruncated && !result.stopped) {
+        if (terminal.wasTruncated && !representative) {
           await capture.capture(binding, submission.image, submission.overwrite);
           if (!batch) { throw new Error('출력이 보관 한도(1,000,000자)를 초과했습니다. 현재 화면만 저장했으며 전체 출력은 캡처되지 않았습니다.'); }
-        } else if (fits.output || result.stopped) {
+        } else if (fits.output || representative) {
           // The real CMD already contains the program's output and native input echo.
           await capture.capture(binding, submission.image, submission.overwrite);
         } else {
@@ -174,9 +175,9 @@ export function registerCommands(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.commands.registerCommand('assignment.runAndCapture', guard(async () => {
       const document = await files.document(false);
-      const submission = await files.prepare(document, 'run');
+      const submission = await files.prepare(document);
       const { count, result } = await runAndCapture(document, submission);
-      notify(submission, ` (${count}장${result.stopped ? ' · 중단된 실행의 대표 출력' : result.code !== 0 ? ' · 실행 오류 화면' : ''})`);
+      notify(submission, ` (${count}장${result.stopReason === 'timeout' ? ' · 제한 시간까지의 대표 출력' : !result.stopped && result.code !== 0 ? ' · 실행 오류 화면' : ''})`);
     })),
     vscode.commands.registerCommand('assignment.runFolderAndCapture', guard(async () => {
       const active = vscode.window.activeTextEditor?.document.uri;
@@ -213,7 +214,7 @@ export function registerCommands(context: vscode.ExtensionContext): void {
             try {
               const document = await vscode.workspace.openTextDocument(vscode.Uri.joinPath(source, name));
               await files.save(document);
-              const submission = await files.prepare(document, 'run', false, { folder, imageFormat, autoVersion: true });
+              const submission = await files.prepare(document, false, { folder, imageFormat });
               const { count } = await runAndCapture(document, submission, {
                 token: cancellation.token,
                 onRun: (result, truncated) => notes.push(...describeRunIssues(result, document.fileName, truncated))
@@ -245,18 +246,19 @@ export function registerCommands(context: vscode.ExtensionContext): void {
       if (!selectedTerminal || selectedTerminal.exitStatus !== undefined) {
         throw new Error('캡처할 REPL 터미널 탭을 선택한 뒤 다시 실행하세요.');
       }
-      const document = await files.document(true);
-      const folder = await files.submissionFolder(document);
+      const editor = vscode.window.activeTextEditor?.document;
+      const source = editor?.uri.scheme === 'file' && /\.js$/i.test(editor.fileName) ? editor.uri.fsPath : undefined;
+      const chapter = source ? path.basename(path.dirname(source)) : '';
+      const folder = path.join(await config.outputFolder(), chapter);
       const imageFormat = await config.imageFormat();
       await fs.mkdir(folder, { recursive: true });
-      await layout.showCode(document);
-      const binding = await capture.bind(document);
       selectedTerminal.show(false);
+      const binding = await capture.bind();
       await capture.withCapturedImage(binding, folder, imageFormat, async temp => {
         const name = await vscode.window.showInputBox({
           title: 'REPL 캡처 파일 이름',
           prompt: `저장할 파일 이름을 입력하세요. .${imageFormat} 확장자는 자동으로 붙습니다.`,
-          value: `${path.parse(document.fileName).name} REPL`,
+          value: source ? `${path.parse(source).name} REPL` : 'REPL',
           ignoreFocusOut: true,
           validateInput: value => {
             try { replImageFilename(value, imageFormat); return undefined; }
@@ -264,12 +266,10 @@ export function registerCommands(context: vscode.ExtensionContext): void {
           }
         });
         if (name === undefined) { throw new Cancelled(); }
-        const imageName = replImageFilename(name, imageFormat);
-        const submission = await files.prepare(document, 'repl', false, { folder, imageFormat, imageName });
-        await files.copyCode(submission);
-        await publishFile(temp, submission.image, submission.overwrite);
-        latest = submission;
-        notify(submission, ' (REPL 터미널 전용 · 세션 유지)');
+        const target = await files.prepareImage(path.join(folder, replImageFilename(name, imageFormat)));
+        await publishFile(temp, target.image, target.overwrite);
+        latestFolder = folder;
+        notify({ folder, image: target.image }, ' (REPL 터미널 전용 · 세션 유지)');
       }, selectedTerminal);
     })),
     vscode.commands.registerCommand('assignment.captureMultiple', guard(async () => {
@@ -282,10 +282,10 @@ export function registerCommands(context: vscode.ExtensionContext): void {
       if (!choice) { throw new Cancelled(); }
       if (choice.mode !== 'code' && runner.lastSource !== document.fileName) { throw new Error('현재 JS의 실행 결과가 없습니다. 이 파일을 먼저 Run and Capture로 실행하세요.'); }
       if (choice.mode !== 'code' && terminal.wasTruncated) { throw new Error('출력이 표시 한도를 초과해 전체 분할 캡처를 할 수 없습니다. 출력량을 줄여 다시 실행하세요.'); }
-      const submission = await files.prepare(document, 'run', true);
+      const submission = await files.prepare(document, true);
       await vscode.window.showTextDocument(document, { preview: false });
       const binding = await capture.bind(document);
-      await files.copyCode(submission); latest = submission;
+      await files.copyCode(submission); latestFolder = submission.folder;
       if (terminal.text) { await terminal.ensureReplay(); }
       try {
         const images = await vscode.window.withProgress({ location: vscode.ProgressLocation.Window, title: '분할 캡처 중', cancellable: true },
@@ -301,15 +301,13 @@ export function registerCommands(context: vscode.ExtensionContext): void {
     })),
     vscode.commands.registerCommand('assignment.captureAgain', guard(async () => {
       const document = await files.document(true);
-      const submission = await files.prepare(document, 'run', true);
+      const submission = await files.prepare(document, true);
       await captureCurrent(document, submission, false); notify(submission);
     })),
-    vscode.commands.registerCommand('assignment.stopRun', () => {
-      if (batchRun) { batchRun.cancel(); }
-      else { runner.process.stop(); }
-    }),
+    vscode.commands.registerCommand('assignment.stopRun', () => runner.stop()),
+    vscode.commands.registerCommand('assignment.stopFolderRun', () => batchRun?.cancel()),
     vscode.commands.registerCommand('assignment.selectOutputFolder', guard(async () => { await config.selectOutputFolder(); })),
     vscode.commands.registerCommand('assignment.selectImageFormat', guard(async () => { await config.selectImageFormat(); })),
-    vscode.commands.registerCommand('assignment.openOutputFolder', guard(async () => { await openFolder(latest?.folder ?? await config.outputFolder()); }))
+    vscode.commands.registerCommand('assignment.openOutputFolder', guard(async () => { await openFolder(latestFolder ?? await config.outputFolder()); }))
   );
 }

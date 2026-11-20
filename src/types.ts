@@ -1,4 +1,3 @@
-export type CaptureKind = 'run' | 'repl';
 /** hwnd is a native HWND on Windows and a CGWindowID on macOS. */
 export interface WindowBinding { hwnd: number; pid: number; }
 export interface Submission {

@@ -28,7 +28,7 @@ export function describeRunIssues(result: CmdRunResult, source: string, truncate
   if (result.stopped) {
     if (result.stopReason === 'timeout') {
       issues.push('시간 초과 · 제한 시간 안에 종료되지 않았습니다. 입력 대기나 반복 실행이 원인일 수 있습니다.');
-    } else if (result.stopReason !== 'cancelled') {
+    } else if (result.stopReason === undefined) {
       issues.push('실행 중단 · 실행이 끝나기 전에 중단 신호를 받았습니다.');
     }
   } else if (result.code !== 0 || result.signal) {

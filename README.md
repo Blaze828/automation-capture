@@ -34,7 +34,8 @@ VS Code에서 JavaScript 과제를 실행하고, 제출할 **JS 복사본과 실
 |---|---|---|---|
 | 한 파일 실행·캡처 | `Ctrl+Alt+Q` | `Control+Option+Q` | `Assignment: Run and Capture` |
 | **폴더 일괄 실행·캡처** | **`Ctrl+Alt+Shift+B`** | **`Control+Option+Shift+B`** | `Assignment: Run Folder and Capture` |
-| 실행 중단 | `Ctrl+Alt+X` | `Control+Option+X` | `Assignment: Stop Run` |
+| 현재 파일 중단 및 캡처 | `Ctrl+Alt+X` | `Control+Option+X` | `Assignment: Stop Run` |
+| 폴더 실행 전체 중단 | `Ctrl+Alt+Shift+X` | `Control+Option+Shift+X` | `Assignment: Stop Folder Run` |
 | 저장 폴더 선택 | `Ctrl+Alt+S` | `Control+Option+S` | `Assignment: Select Output Folder` |
 | 이미지 형식 변경 | `Ctrl+Alt+F` | `Control+Option+F` | `Assignment: Select Image Format` |
 | 현재 화면 추가 캡처 | `Ctrl+Alt+W` | `Control+Option+W` | `Assignment: Capture Again` |
@@ -62,7 +63,7 @@ VS Code에서 JavaScript 과제를 실행하고, 제출할 **JS 복사본과 실
 
 실행 범위는 선택한 폴더의 최상위 `.js` 파일입니다. 파일마다 실행과 캡처가 끝난 뒤 다음 파일로 넘어갑니다. 긴 출력은 여러 장으로 저장하며, 기존 파일과 이름이 겹치면 새 번호를 붙입니다. 제한 시간 안에 끝나지 않은 파일은 실행을 중단해 대표 화면을 저장한 뒤 다음 파일을 처리합니다.
 
-일괄 실행을 중단하려면 **Windows `Ctrl+Alt+X` / Mac `Control+Option+X`**를 누릅니다. 이미 저장한 파일은 그대로 사용할 수 있습니다.
+현재 파일을 직접 중단하면 그때까지의 출력을 캡처한 뒤 다음 파일을 실행합니다. **Windows `Ctrl+Alt+X` / Mac `Control+Option+X`**를 누르거나, 실행 터미널에서 `Ctrl+C`를 누릅니다. 폴더 실행 전체를 중단하려면 **Windows `Ctrl+Alt+Shift+X` / Mac `Control+Option+Shift+X`**를 누릅니다.
 
 ### 완료 후 결과와 문제 확인
 
@@ -81,7 +82,7 @@ VS Code에서 JavaScript 과제를 실행하고, 제출할 **JS 복사본과 실
    └─ test 실행결과.png
 ```
 
-추가 캡처나 분할 이미지에는 `_02`, `_03`처럼 번호가 붙습니다. REPL 캡처 파일 이름은 저장할 때 입력하며, 기본 이름은 `test REPL.png`처럼 원본 파일 이름을 따릅니다. 이미지 확장자는 선택한 형식에 따라 달라집니다. 기존 결과와 이름이 겹치면 **덮어쓰기·새 버전으로 저장·취소** 중 선택합니다.
+추가 캡처나 분할 이미지에는 `_02`, `_03`처럼 번호가 붙습니다. REPL 캡처는 입력한 이름으로 이미지 파일만 저장합니다. `.js` 파일이 활성 상태면 해당 장 폴더에, 그 외에는 선택한 저장 폴더에 바로 저장합니다. 이미지 확장자는 선택한 형식에 따라 달라집니다. 기존 결과와 이름이 겹치면 **덮어쓰기·새 버전으로 저장·취소** 중 선택합니다.
 
 - **저장 위치 확인**은 명령 팔레트에서 `Assignment: Open Output Folder`를 실행합니다.
 - **ZIP 제출**은 `Assignment: Export Chapter ZIP`을 실행하고 장 폴더를 고릅니다. `6장`을 선택하면 저장 폴더 바로 아래에 `제출/6장.zip`이 생깁니다. ZIP에는 선택한 장의 JS와 PNG·JPG·WebP 이미지가 들어갑니다.
@@ -90,7 +91,7 @@ VS Code에서 JavaScript 과제를 실행하고, 제출할 **JS 복사본과 실
 
 - **현재 화면 추가 캡처**는 원하는 코드와 결과를 화면에 표시한 뒤 `W` 단축키로 한 장 더 저장합니다. 이 명령은 화면에 이미 표시된 내용을 사용합니다.
 - **직접 분할 캡처**는 `A` 단축키를 누른 뒤 **코드와 실행 결과·코드만·실행 결과만** 중 선택합니다. 결과를 포함하려면 같은 JS 파일을 먼저 실행하세요.
-- **REPL 출력 캡처**는 관련 `.js` 파일을 편집기에서 연 뒤, `node`가 실행 중인 터미널 탭을 선택하고 `D` 단축키를 누릅니다. 터미널 화면을 찍은 뒤 파일 이름 입력창이 열립니다. 이름을 입력하고 Enter를 누르면 저장되고, Esc를 누르면 취소됩니다. 새 REPL이 필요하면 `E` 단축키로 시작할 수 있습니다.
+- **REPL 출력 캡처**는 `node`가 실행 중인 터미널 탭을 선택하고 `D` 단축키를 누릅니다. 편집기가 비어 있어도 터미널 화면을 찍고 파일 이름 입력창을 엽니다. 이름을 입력하고 Enter를 누르면 이미지가 저장되고, Esc를 누르면 취소됩니다.
 
 ## 문제 해결
 

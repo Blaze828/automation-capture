@@ -25,6 +25,7 @@ class MacWindowTest(unittest.TestCase):
         target = window()
         self.assertEqual(select_window([target, window(11)], 20, 'test.js'), target)
         self.assertEqual(select_window([window(pid=99), target], 20, 'test.js'), target)
+        self.assertEqual(select_window([window(pid=99), target], 20, None, terminal_only=True), target)
         with self.assertRaises(RuntimeError):
             select_window([window(pid=99)], 20, 'test.js')
         with self.assertRaises(RuntimeError):

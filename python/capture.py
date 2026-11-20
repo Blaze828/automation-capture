@@ -99,11 +99,15 @@ def main():
     if not any(window._hWnd == hwnd for window in gw.getAllWindows()):
         raise RuntimeError("VS Code 창을 찾지 못했습니다.")
     pid = identity(hwnd)
-    title = ctypes.create_unicode_buffer(user32.GetWindowTextLengthW(hwnd) + 1)
-    user32.GetWindowTextW(hwnd, title, len(title))
     if args.probe:
-        if not args.title or args.title.casefold() not in title.value.casefold():
-            raise RuntimeError("활성 VS Code 창의 파일명이 일치하지 않습니다. 원본 JS 탭을 선택하세요. 사용자 지정 window.title에는 ${activeEditorShort}가 필요합니다.")
+        if args.terminal_only:
+            if pid != args.pid:
+                raise RuntimeError("캡처를 요청한 VS Code 창에서 REPL 터미널을 선택하세요.")
+        else:
+            title = ctypes.create_unicode_buffer(user32.GetWindowTextLengthW(hwnd) + 1)
+            user32.GetWindowTextW(hwnd, title, len(title))
+            if not args.title or args.title.casefold() not in title.value.casefold():
+                raise RuntimeError("활성 VS Code 창의 파일명이 일치하지 않습니다. 원본 JS 탭을 선택하세요. 사용자 지정 window.title에는 ${activeEditorShort}가 필요합니다.")
         print(json.dumps({"hwnd": hwnd, "pid": pid}))
         return
     if pid != args.pid or user32.GetForegroundWindow() != hwnd:

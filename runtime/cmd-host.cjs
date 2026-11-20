@@ -8,7 +8,7 @@ const controlPath = path.join(request.folder, 'control.json');
 const outputPath = path.join(request.folder, 'output.txt');
 let child;
 let done = request.replay === true;
-let stopped = false;
+let stopReason;
 let code = null;
 let signal = null;
 let error;
@@ -23,7 +23,7 @@ function publish() {
   // Windows does not reliably deliver SIGWINCH while the capture host is idle.
   // Refresh Node's cached console dimensions before reporting them to the extension.
   if (process.stdout.isTTY && typeof process.stdout._refreshSize === 'function') { process.stdout._refreshSize(); }
-  const state = { nonce: request.nonce, ready: true, done, stopped, code, signal, error, ack,
+  const state = { nonce: request.nonce, ready: true, done, stopped: stopReason !== undefined, stopReason, code, signal, error, ack,
     pid: child?.pid, hostPid: process.pid, shellPid: process.ppid,
     columns: process.stdout.columns || 100, rows: process.stdout.rows || 20,
     truncated, tail, stderr: done && stderr ? stderr : undefined };
@@ -47,9 +47,9 @@ function output(text) {
     process.stdout.write(retained);
   } else { truncated = true; }
 }
-function stop() {
-  if (done || stopped || !child?.pid) { return; }
-  stopped = true;
+function stop(reason) {
+  if (done || stopReason || !child?.pid) { return; }
+  stopReason = reason;
   if (process.platform === 'win32') {
     const killer = spawn('taskkill', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true, shell: false });
     killer.on('error', () => child.kill());
@@ -60,11 +60,11 @@ function stop() {
     catch (failure) { if (failure.code !== 'ESRCH') { child.kill('SIGKILL'); } }
   }
 }
-process.on('SIGINT', stop);
-if (process.platform === 'win32') { process.on('SIGBREAK', stop); }
+process.on('SIGINT', () => stop('manual'));
+if (process.platform === 'win32') { process.on('SIGBREAK', () => stop('manual')); }
 else {
   for (const event of ['SIGTERM', 'SIGHUP']) {
-    process.on(event, () => { stop(); process.exit(0); });
+    process.on(event, () => { stop('cancelled'); process.exit(0); });
   }
 }
 fs.writeFileSync(outputPath, '');
@@ -73,7 +73,7 @@ process.stdout.write('\x1b[2J\x1b[3J\x1b[H');
 if (request.replay) {
   output(request.text || '');
 } else {
-  const executable = JSON.stringify(path.basename(request.nodePath)).replace(/^"(node(?:\.exe)?)"$/, '$1');
+  const executable = JSON.stringify(path.basename(request.nodePath)).replace(/^"node(?:\.exe)?"$/i, 'node');
   const prompt = process.platform === 'win32' ? '>' : ' $ ';
   output(`${path.dirname(request.source)}${prompt}${executable} ${JSON.stringify(path.basename(request.source))}\n\n`);
   const env = { ...process.env };
@@ -103,7 +103,7 @@ const timer = setInterval(() => {
     if (fs.existsSync(controlPath)) {
       const control = JSON.parse(fs.readFileSync(controlPath, 'utf8'));
       if (control.nonce === request.nonce && control.seq > ack) {
-        if (control.stop) { stop(); }
+        if (control.stop) { stop(control.stop); }
         if (typeof control.display === 'string') {
           process.stdout.write('\x1b[2J\x1b[3J\x1b[H' + control.display.replace(/\r?\n/g, '\r\n'));
         }
@@ -122,7 +122,7 @@ const timer = setInterval(() => {
     // Windows readers can briefly hold the destination during an atomic replacement.
     if (!['ENOENT', 'EPERM', 'EACCES', 'EBUSY'].includes(failure.code) && !(failure instanceof SyntaxError)) {
       process.stderr.write(`CMD capture host: ${failure.message}\n`);
-      stop(); clearInterval(timer); process.exit(1);
+      stop('cancelled'); clearInterval(timer); process.exit(1);
     }
   }
 }, 60);

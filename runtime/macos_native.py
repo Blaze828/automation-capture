@@ -14,7 +14,7 @@ def intersects(a, b):
     return min(a[2], b[2]) > max(a[0], b[0]) and min(a[3], b[3]) > max(a[1], b[1])
 
 
-def select_window(windows, pid, title):
+def select_window(windows, pid, title, *, terminal_only=False):
     # The caller has checked the frontmost application. Non-activating foreign
     # overlays may still precede Code in this list; window capture excludes them.
     visible = [w for w in windows if int(w['kCGWindowOwnerPID']) == pid and w.get('kCGWindowLayer') == 0
@@ -22,7 +22,7 @@ def select_window(windows, pid, title):
     if not visible:
         raise RuntimeError('대상 VS Code 창을 전면에 두고 다시 실행하세요.')
     window = visible[0]
-    if not title or title.casefold() not in str(window.get('kCGWindowName', '')).casefold():
+    if not terminal_only and (not title or title.casefold() not in str(window.get('kCGWindowName', '')).casefold()):
         raise RuntimeError('활성 VS Code 창의 파일명이 일치하지 않습니다. 원본 JS 탭을 선택하세요. window.title에 ${activeEditorShort}가 필요합니다.')
     return window
 
@@ -41,7 +41,7 @@ def validate_window(windows, window_id, pid, dock_pids=(), cursor_pids=(), curso
                       and w.get('kCGWindowLayer') == 0 and w.get('kCGWindowIsOnscreen', True)
                       and w.get('kCGWindowAlpha', 1) > 0), None)
         if front is None or int(front['kCGWindowNumber']) != window_id:
-            raise RuntimeError('활성 VS Code 창이 변경되었습니다. 원본 JS 창에서 다시 캡처하세요.')
+            raise RuntimeError('활성 VS Code 창이 변경되었습니다. 캡처할 창에서 다시 실행하세요.')
         return target
     bounds = rect(target['kCGWindowBounds'])
     for window in windows:

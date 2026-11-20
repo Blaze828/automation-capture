@@ -3,7 +3,8 @@ export function nativePlatform(platform: NodeJS.Platform = process.platform) {
   if (platform === 'win32') {
     return { capture: 'python/capture.py', layout: 'runtime/terminal_layout.py',
       bootstrap: 'cmd-bootstrap.cmd', shellName: 'cmd', python: 'python',
-      startCommand: '@"%AUTOCAPTURE_BOOTSTRAP%"' };
+      // Finish the batch setup before invoking Node so Ctrl+C leaves CMD at a usable prompt.
+      startCommand: '@"%AUTOCAPTURE_BOOTSTRAP%"\n@"%AUTOCAPTURE_NODE%" "%AUTOCAPTURE_HELPER%"' };
   }
   if (platform === 'darwin') {
     return { capture: 'python/capture_macos.py', layout: 'runtime/terminal_layout_macos.py',

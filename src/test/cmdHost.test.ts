@@ -5,9 +5,11 @@ import * as path from 'path';
 import * as os from 'os';
 import { spawn, execFileSync } from 'child_process';
 import { randomUUID } from 'crypto';
+import { nativePlatform } from '../platform';
 const isMac = process.platform === 'darwin';
 const unsupported = !['win32', 'darwin'].includes(process.platform);
-const startCommand = isMac ? 'source "$AUTOCAPTURE_BOOTSTRAP"\n' : '@"%AUTOCAPTURE_BOOTSTRAP%"\r\n';
+const command = nativePlatform(isMac ? 'darwin' : 'win32').startCommand;
+const startCommand = isMac ? `${command}\n` : `${command.replace(/\n/g, '\r\n')}\r\n`;
 
 async function fixture(code: string, check: (host: {
   wait: (predicate: (state: any) => boolean) => Promise<any>;
@@ -25,12 +27,12 @@ async function fixture(code: string, check: (host: {
   await fs.writeFile(request, JSON.stringify({ folder: root, nonce, nodePath: process.execPath, source }));
   await fs.writeFile(path.join(root, 'cwd.txt'), chapter);
   await fs.writeFile(path.join(root, 'cwd.bin'), chapter + '\0');
-  const cmd = spawn(isMac ? '/bin/zsh' : process.env.ComSpec || 'cmd.exe', isMac ? ['-f', '-i'] : ['/d', '/q', '/v:off', '/k', '""%AUTOCAPTURE_BOOTSTRAP%""'], {
-    windowsHide: true, windowsVerbatimArguments: !isMac, detached: isMac, cwd: chapter,
+  const cmd = spawn(isMac ? '/bin/zsh' : process.env.ComSpec || 'cmd.exe', isMac ? ['-f', '-i'] : ['/d', '/q', '/v:off'], {
+    windowsHide: true, detached: isMac, cwd: chapter,
     env: { ...process.env, AUTOCAPTURE_NODE: process.execPath, AUTOCAPTURE_REQUEST: request, AUTOCAPTURE_FOLDER: root,
       AUTOCAPTURE_BOOTSTRAP: path.resolve(isMac ? 'runtime/shell-bootstrap.sh' : 'runtime/cmd-bootstrap.cmd'), AUTOCAPTURE_HELPER: path.resolve('runtime/cmd-host.cjs') }
   });
-  if (isMac) { cmd.stdin.write(startCommand); }
+  cmd.stdin.write(startCommand);
   let output = ''; let seq = 0;
   cmd.stdout.setEncoding('utf8'); cmd.stderr.setEncoding('utf8');
   cmd.stdout.on('data', text => { output += text; }); cmd.stderr.on('data', text => { output += text; });
@@ -115,12 +117,12 @@ test('real owned shell accepts input and preserves a failing Node exit code with
   });
 });
 
-test('real owned shell stops an infinite Node process and keeps its representative output', {skip: unsupported}, async () => {
+test('real owned shell records a manual stop and keeps the output produced so far', {skip: unsupported}, async () => {
   await fixture("setInterval(()=>console.log('무한 반복'),1)", async host => {
     await host.wait(state => state.tail.includes('무한 반복'));
-    await host.control({stop: true});
+    await host.control({stop: 'manual'});
     const state = await host.wait(state => state.done);
-    assert.equal(state.stopped, true); assert.match(await host.log(), /무한 반복/);
+    assert.equal(state.stopped, true); assert.equal(state.stopReason, 'manual'); assert.match(await host.log(), /무한 반복/);
   });
 });
 
@@ -132,7 +134,8 @@ test('the same owned shell runs a second file from another folder and clears all
     assert.equal((await host.wait(state => state.done)).code, 0);
     const log = await host.log();
     assert.match(log, /ONLY_NEW/); assert.doesNotMatch(log, /ONLY_OLD/);
-    assert.ok(log.startsWith(path.dirname(next.source) + (isMac ? ' $ ' : '>')));
+    const prompt = isMac ? ' $ ' : '>';
+    assert.equal(log.split('\n')[0], `${path.dirname(next.source)}${prompt}node ${JSON.stringify(path.basename(next.source))}`);
     assert.ok(log.includes(path.dirname(next.source)));
     const clear = host.output().lastIndexOf('\x1b[2J\x1b[3J\x1b[H');
     assert.ok(clear >= 0, 'the new run clears the viewport and scrollback');
@@ -149,6 +152,6 @@ test('owned shell idle probe identifies the owned shell and reports programs sti
     const busy = probe(host.pid);
     assert.equal(busy.cmd, true); assert.ok(busy.children.includes(state.hostPid));
     assert.equal(probe(2147483646).cmd, false);
-    await host.control({stop: true}); await host.wait(state => state.done);
+    await host.control({stop: 'manual'}); await host.wait(state => state.done);
   });
 });

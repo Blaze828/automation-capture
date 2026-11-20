@@ -30,4 +30,6 @@ test('distinguishes cancellation, output limits, and successful runs with stderr
   const stopped = describeRunIssues({ ...finished, stopped: true, stopReason: 'cancelled' }, source, true);
   assert.equal(stopped.length, 1);
   assert.match(stopped[0], /^출력 잘림/);
+  assert.deepEqual(describeRunIssues({ ...finished, stopped: true, stopReason: 'manual' }, source, false), []);
+  assert.match(describeRunIssues({ ...finished, stopped: true, stopReason: 'timeout' }, source, false)[0], /^시간 초과/);
 });

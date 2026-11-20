@@ -60,6 +60,10 @@
         "title": "Assignment: Stop Run"
       },
       {
+        "command": "assignment.stopFolderRun",
+        "title": "Assignment: Stop Folder Run"
+      },
+      {
         "command": "assignment.exportChapterZip",
         "title": "Assignment: Export Chapter ZIP"
       },
@@ -126,6 +130,11 @@
         "command": "assignment.stopRun",
         "key": "ctrl+alt+x",
         "mac": "ctrl+alt+x"
+      },
+      {
+        "command": "assignment.stopFolderRun",
+        "key": "ctrl+alt+shift+x",
+        "mac": "ctrl+alt+shift+x"
       },
       {
         "command": "assignment.captureMultiple",
