@@ -26,6 +26,20 @@ async function acceptPicker(command: string, next = 0): Promise<unknown> {
   return pending;
 }
 
+async function answerReplName(cancel = false): Promise<{ok?: boolean; error?: string} | undefined> {
+  let settled = false;
+  const pending = Promise.resolve(vscode.commands.executeCommand<{ok?: boolean; error?: string} | undefined>('assignment.captureRepl'))
+    .finally(() => { settled = true; });
+  const answer = cancel ? 'workbench.action.closeQuickOpen' : 'workbench.action.acceptSelectedQuickOpenItem';
+  const deadline = Date.now() + 30_000;
+  while (!settled && Date.now() < deadline) {
+    await delay(200);
+    if (!settled) { await vscode.commands.executeCommand(answer); }
+  }
+  assert.ok(settled, 'REPL capture name prompt must respond');
+  return pending;
+}
+
 async function freshSetup(extensionPath: string, output: string): Promise<void> {
   const config = new ConfigManager();
   assert.equal(config.settings.get('outputFolder'), '', 'first install has no output folder');
@@ -114,11 +128,7 @@ async function runApiTests(workspace: string, output: string): Promise<void> {
     terminal.write(Array.from({length: 24}, (_, i) => `height ${i}`).join('\n'));
     await layout.fit(doc, terminal);
     assert.equal(terminal.dimensions.rows, shortRows, 'layout does not resize without the one-shot backend');
-    await layout.replOnly(doc, () => terminal.show(), async () => {
-      assert.equal(terminal.dimensions.rows, shortRows, 'REPL-only capture keeps the panel height');
-    });
-    assert.ok((await layout.showCode(doc)).visibleRanges.length > 0, 'file tab is restored after REPL capture');
-    console.log('PASS API output priority layout and terminal-only capture/restoration');
+    console.log('PASS API output priority layout preserves panel height');
 
     // The legacy Pseudoterminal prints full executable/source paths. Give this
     // fixture room for those paths before checking its representative-output fit.
@@ -300,6 +310,53 @@ async function runFolderCapture(workspace: string, output: string): Promise<void
   }
 }
 
+async function captureExistingRepl(workspace: string, output: string): Promise<void> {
+  const document = await vscode.workspace.openTextDocument(path.join(workspace, '4장', '131.js'));
+  await vscode.window.showTextDocument(document, { preview: false });
+  const windows = process.platform === 'win32';
+  const repl = vscode.window.createTerminal({ cwd: workspace, location: vscode.TerminalLocation.Panel,
+    shellPath: windows ? process.env.ComSpec || 'C:\\Windows\\System32\\cmd.exe' : '/bin/zsh',
+    shellArgs: windows ? ['/d'] : ['-f', '-i'] });
+  const marker = path.join(workspace, 'repl-state.txt');
+  const writeValue = `require('node:fs').writeFileSync(${JSON.stringify(marker)}, String(replValue))`;
+  const waitForValue = async (value: string) => {
+    for (let i = 0; i < 60; i++) {
+      if (await fs.readFile(marker, 'utf8').catch(() => undefined) === value) { return; }
+      await delay(100);
+    }
+    assert.fail(`Manual Node REPL did not write ${value}`);
+  };
+  try {
+    repl.show();
+    const pid = await repl.processId;
+    assert.ok(pid);
+    const node = new ConfigManager().nodePath;
+    repl.sendText(windows ? `"${node}"` : `'${node.replace(/'/g, "'\\''")}'`);
+    await delay(600);
+    repl.sendText(`let replValue = 42; console.log('REPL 터미널 캡처', replValue); ${writeValue}`);
+    await waitForValue('42');
+    assert.equal(vscode.window.activeTerminal, repl);
+    const opened: vscode.Terminal[] = [];
+    const listener = vscode.window.onDidOpenTerminal(terminal => opened.push(terminal));
+    const folder = path.join(output, '4장');
+    try {
+      const cancelled = await answerReplName(true);
+      assert.equal(cancelled?.error, '사용자가 취소했습니다.');
+      assert.deepEqual(await fs.readdir(folder), [], 'cancel discards the staged image and skips saving the source');
+      const result = await answerReplName();
+      assert.notEqual(result?.ok, false, result?.error);
+    } finally { listener.dispose(); }
+    assert.equal(opened.length, 0, 'capture does not open a terminal');
+    assert.equal(vscode.window.activeTerminal, repl);
+    assert.equal(await repl.processId, pid);
+    const image = await fs.readFile(path.join(folder, '131 REPL.png'));
+    assert.equal(image.subarray(1, 4).toString(), 'PNG');
+    repl.sendText(`replValue++; ${writeValue}`);
+    await waitForValue('43');
+    console.log('PASS real capture reuses manually started Node REPL and preserves its variables');
+  } finally { repl.dispose(); }
+}
+
 async function runScenarios(): Promise<void> {
   const workspace = process.env.AUTOCAPTURE_WORKSPACE!;
   const output = process.env.AUTOCAPTURE_OUTPUT!;
@@ -341,6 +398,7 @@ async function runScenarios(): Promise<void> {
     await delay(500);
   }
   for (let i = 0; i < 120 && !vscode.window.state.focused; i++) { await delay(500); }
+  await captureExistingRepl(workspace, output);
   for (const name of ['131', '오류 예제']) {
     const doc = await vscode.workspace.openTextDocument(path.join(workspace, '4장', `${name}.js`));
     await vscode.window.showTextDocument(doc, { preview: false });
@@ -390,15 +448,6 @@ async function runScenarios(): Promise<void> {
     for (const image of images) { assert.ok((await fs.stat(path.join(output, '4장', image))).size > 1000); }
     console.log(`PASS real automatic capture: ${scenario.name} (${images.length} images)`);
   }
-  await vscode.commands.executeCommand('assignment.startRepl');
-  const repl = vscode.window.terminals.find(t => t.name.startsWith('Assignment REPL'));
-  assert.ok(repl); await delay(800); repl.sendText("console.log('REPL 출력 전용 확인', 1 + 2)"); await delay(500);
-  const replResult = await vscode.commands.executeCommand<{ok: boolean; error: string}>('assignment.captureRepl');
-  assert.notEqual(replResult?.ok, false, replResult?.error);
-  assert.ok((await fs.stat(path.join(output, '4장', '자동 반복 요약 REPL.png'))).size > 1000);
-  assert.equal(repl.exitStatus, undefined);
-  console.log('PASS real REPL terminal-only capture; session remains alive');
-
   if (process.platform === 'darwin' && process.env.GITHUB_ACTIONS === 'true') {
     const source = path.join(workspace, '4장', 'Mac 창 캡처.js');
     await fs.writeFile(source, "console.log('Mac 창 전용 캡처 확인')");
@@ -431,7 +480,7 @@ async function runScenarios(): Promise<void> {
       await vscode.commands.executeCommand('assignment.startRepl');
       vscode.window.terminals.find(t => t.name.startsWith('Assignment REPL'))!.sendText("console.log('REPL 창 전용 확인')");
       await delay(500);
-      const replCapture = await vscode.commands.executeCommand<{ok?: boolean; error?: string}>('assignment.captureRepl');
+      const replCapture = await answerReplName();
       assert.notEqual(replCapture?.ok, false, replCapture?.error);
       const checked = await promisify(execFile)(config.pythonPath, ['-E', '-s', '-X', 'utf8', script, receipt, '--check',
         path.join(output, '4장', 'Mac 창 캡처 실행결과.png'), path.join(output, '4장', 'Mac 창 캡처 REPL.png')], {timeout: 15000});

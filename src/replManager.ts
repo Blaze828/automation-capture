@@ -19,9 +19,5 @@ export class ReplManager implements vscode.Disposable {
       env: terminalNodeEnvironment(this.config.nodePath), location: vscode.TerminalLocation.Panel });
     this.folder = folder; this.terminal.show(false);
   }
-  show(): void {
-    if (!this.active) { throw new Error('Assignment: Start REPL로 먼저 REPL을 시작하세요.'); }
-    this.terminal!.show(true);
-  }
   dispose(): void { /* User-owned REPLs remain until VS Code closes them. */ }
 }

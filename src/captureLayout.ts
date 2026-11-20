@@ -32,12 +32,4 @@ export class CaptureLayout {
     }
     return { output: terminal.estimatedRows <= terminal.dimensions.rows };
   }
-
-  async replOnly(document: vscode.TextDocument, show: () => void, capture: () => Promise<void>): Promise<void> {
-    await this.showCode(document);
-    show();
-    await vscode.commands.executeCommand('workbench.action.terminal.focus');
-    // The capture backend crops to the terminal viewport; no maximizing/restoring needed.
-    await capture();
-  }
 }

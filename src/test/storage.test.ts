@@ -6,6 +6,18 @@ import * as path from 'path';
 import { execFileSync } from 'child_process';
 import { createChapterZip } from '../zipArchive';
 import { nextAvailable, publishFile } from '../storage';
+import { replImageFilename } from '../imageFormat';
+
+test('REPL filenames use the chosen format and stay inside the submission folder', () => {
+  assert.equal(replImageFilename('  진수 변환  ', 'png'), '진수 변환.png');
+  assert.equal(replImageFilename('진수 변환.PNG', 'png'), '진수 변환.png');
+  assert.equal(replImageFilename('예제 1.2', 'webp'), '예제 1.2.webp');
+  assert.throws(() => replImageFilename('', 'png'), /이름을 입력/);
+  assert.throws(() => replImageFilename('.png', 'png'), /이름을 입력/);
+  assert.throws(() => replImageFilename('../다른 장', 'png'), /사용할 수 없는/);
+  assert.throws(() => replImageFilename('CON', 'png'), /사용할 수 없는/);
+  assert.throws(() => replImageFilename('다른 형식.jpg', 'png'), /선택한 이미지 형식/);
+});
 
 test('ZIP includes JS and all capture formats, preserves Korean names and safely replaces old ZIP', async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), '제출 공백 '));

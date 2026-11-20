@@ -40,24 +40,27 @@ export class FileManager {
   async save(document: vscode.TextDocument): Promise<void> {
     if (document.isDirty && !await document.save()) { throw new Error('원본 JavaScript 파일을 저장하지 못했습니다.'); }
   }
-  async prepare(document: vscode.TextDocument, kind: CaptureKind, again = false,
-    batch?: { folder: string; imageFormat: ImageFormat }): Promise<Submission> {
-    const source = document.uri.fsPath;
-    const chapter = path.basename(path.dirname(source));
+  async submissionFolder(document: vscode.TextDocument): Promise<string> {
+    const chapter = path.basename(path.dirname(document.uri.fsPath));
     if (!chapter) { throw new Error('파일을 장 폴더 안에 저장하세요.'); }
-    const folder = batch?.folder ?? path.join(await this.config.outputFolder(), chapter);
+    return path.join(await this.config.outputFolder(), chapter);
+  }
+  async prepare(document: vscode.TextDocument, kind: CaptureKind, again = false,
+    options?: { folder: string; imageFormat: ImageFormat; imageName?: string; autoVersion?: boolean }): Promise<Submission> {
+    const source = document.uri.fsPath;
+    const folder = options?.folder ?? await this.submissionFolder(document);
     await fs.mkdir(folder, { recursive: true });
     const base = path.basename(source, path.extname(source));
     const code = path.join(folder, `${base}.js`);
-    const format = batch?.imageFormat ?? await this.config.imageFormat();
-    let image = path.join(folder, `${base} ${kind === 'repl' ? 'REPL' : '실행결과'}.${format}`);
+    const format = options?.imageFormat ?? await this.config.imageFormat();
+    let image = path.join(folder, options?.imageName ?? `${base} ${kind === 'repl' ? 'REPL' : '실행결과'}.${format}`);
     if (again) { let n = 2; const initial = image; do { image = versioned(initial, n++); } while (await exists(image)); }
     const sameSource = samePath(code, source);
     const unchanged = sameSource || (await exists(code) && (await fs.readFile(code)).equals(await fs.readFile(source)));
     let destinationCode = code;
     let overwrite = false;
     if ((!unchanged && await exists(code)) || await exists(image)) {
-      const decision = batch ? '새 버전으로 저장' : await this.chooseConflict();
+      const decision = options?.autoVersion ? '새 버전으로 저장' : await this.chooseConflict();
       if (!decision || decision === '취소') { throw new Cancelled(); }
       overwrite = decision === '덮어쓰기';
       if (!overwrite) {

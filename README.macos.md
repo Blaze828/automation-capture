@@ -10,8 +10,8 @@ macOS 13 이상과 데스크톱 VS Code 1.100 이상을 사용합니다. VSIX �
 
 | 실행 환경 | VSIX 다운로드 |
 |---|---|
-| Apple Silicon용 VS Code | [Apple Silicon용 VSIX](https://github.com/Blaze828/automation-capture/releases/download/v0.8.0/js-assignment-autocapture-0.8.0-darwin-arm64.vsix) |
-| Intel용 VS Code · Rosetta로 실행하는 Intel용 VS Code 포함 | [Intel Mac용 VSIX](https://github.com/Blaze828/automation-capture/releases/download/v0.8.0/js-assignment-autocapture-0.8.0-darwin-x64.vsix) |
+| Apple Silicon용 VS Code | [Apple Silicon용 VSIX](https://github.com/Blaze828/automation-capture/releases/download/v0.8.1/js-assignment-autocapture-0.8.1-darwin-arm64.vsix) |
+| Intel용 VS Code · Rosetta로 실행하는 Intel용 VS Code 포함 | [Intel Mac용 VSIX](https://github.com/Blaze828/automation-capture/releases/download/v0.8.1/js-assignment-autocapture-0.8.1-darwin-x64.vsix) |
 
 1. 표에서 내 Mac에 맞는 VSIX를 받습니다. 단일 실행과 폴더 일괄 실행이 함께 들어 있습니다.
 2. VS Code 왼쪽의 **확장 → ⋯ → VSIX에서 설치…**에서 파일을 선택합니다.

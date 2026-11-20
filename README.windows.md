@@ -6,7 +6,7 @@ Windows 10/11 x64와 데스크톱 VS Code 1.100 이상을 사용합니다. VSIX 
 
 ## 설치와 업데이트
 
-1. Windows용 VSIX를 받습니다. 단일 실행과 폴더 일괄 실행이 함께 들어 있습니다. [Windows용 VSIX 다운로드](https://github.com/Blaze828/automation-capture/releases/download/v0.8.0/js-assignment-autocapture-0.8.0-win32-x64.vsix)
+1. Windows용 VSIX를 받습니다. 단일 실행과 폴더 일괄 실행이 함께 들어 있습니다. [Windows용 VSIX 다운로드](https://github.com/Blaze828/automation-capture/releases/download/v0.8.1/js-assignment-autocapture-0.8.1-win32-x64.vsix)
 2. VS Code 왼쪽의 **확장 → ⋯ → VSIX에서 설치…**에서 파일을 선택합니다.
 3. **다시 로드** 안내가 나오면 누릅니다.
 

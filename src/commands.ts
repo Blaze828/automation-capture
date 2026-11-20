@@ -12,9 +12,10 @@ import { Cancelled, errorMessage, Submission } from './types';
 import { ReplManager } from './replManager';
 import { ZipManager } from './zipManager';
 import { MultiCapture } from './multiCapture';
-import { nextAvailable } from './storage';
+import { nextAvailable, publishFile } from './storage';
 import { CaptureLayout } from './captureLayout';
 import { describeRunIssues } from './runDiagnostics';
+import { replImageFilename } from './imageFormat';
 
 interface FileIssues { name: string; notes: string[]; }
 
@@ -212,7 +213,7 @@ export function registerCommands(context: vscode.ExtensionContext): void {
             try {
               const document = await vscode.workspace.openTextDocument(vscode.Uri.joinPath(source, name));
               await files.save(document);
-              const submission = await files.prepare(document, 'run', false, { folder, imageFormat });
+              const submission = await files.prepare(document, 'run', false, { folder, imageFormat, autoVersion: true });
               const { count } = await runAndCapture(document, submission, {
                 token: cancellation.token,
                 onRun: (result, truncated) => notes.push(...describeRunIssues(result, document.fileName, truncated))
@@ -240,13 +241,36 @@ export function registerCommands(context: vscode.ExtensionContext): void {
       const document = await files.document(true); await repl.start(document);
     })),
     vscode.commands.registerCommand('assignment.captureRepl', guard(async () => {
+      const selectedTerminal = vscode.window.activeTerminal;
+      if (!selectedTerminal || selectedTerminal.exitStatus !== undefined) {
+        throw new Error('캡처할 REPL 터미널 탭을 선택한 뒤 다시 실행하세요.');
+      }
       const document = await files.document(true);
-      const submission = await files.prepare(document, 'repl');
+      const folder = await files.submissionFolder(document);
+      const imageFormat = await config.imageFormat();
+      await fs.mkdir(folder, { recursive: true });
       await layout.showCode(document);
       const binding = await capture.bind(document);
-      await files.copyCode(submission); latest = submission;
-      await layout.replOnly(document, () => repl.show(), () => capture.capture(binding, submission.image, submission.overwrite, true));
-      notify(submission, ' (REPL 터미널 전용 · 세션 유지)');
+      selectedTerminal.show(false);
+      await capture.withCapturedImage(binding, folder, imageFormat, async temp => {
+        const name = await vscode.window.showInputBox({
+          title: 'REPL 캡처 파일 이름',
+          prompt: `저장할 파일 이름을 입력하세요. .${imageFormat} 확장자는 자동으로 붙습니다.`,
+          value: `${path.parse(document.fileName).name} REPL`,
+          ignoreFocusOut: true,
+          validateInput: value => {
+            try { replImageFilename(value, imageFormat); return undefined; }
+            catch (error) { return errorMessage(error); }
+          }
+        });
+        if (name === undefined) { throw new Cancelled(); }
+        const imageName = replImageFilename(name, imageFormat);
+        const submission = await files.prepare(document, 'repl', false, { folder, imageFormat, imageName });
+        await files.copyCode(submission);
+        await publishFile(temp, submission.image, submission.overwrite);
+        latest = submission;
+        notify(submission, ' (REPL 터미널 전용 · 세션 유지)');
+      }, selectedTerminal);
     })),
     vscode.commands.registerCommand('assignment.captureMultiple', guard(async () => {
       const document = await files.document(true);

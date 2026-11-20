@@ -6,7 +6,7 @@ import { randomUUID } from 'crypto';
 import { ConfigManager } from './configManager';
 import { publishFile } from './fileManager';
 import { delay, WindowBinding } from './types';
-import { hasImageSignature, isImageFormat } from './imageFormat';
+import { hasImageSignature, ImageFormat, isImageFormat } from './imageFormat';
 import { nativePlatform } from './platform';
 
 export class CaptureManager {
@@ -37,20 +37,31 @@ export class CaptureManager {
     await this.python(['--hwnd', String(binding.hwnd), '--pid', String(binding.pid),
       '--output-rows', String(outputRows), '--current-rows', String(currentRows)], nativePlatform().layout);
   }
-  async capture(binding: WindowBinding, image: string, overwrite: boolean, terminalOnly = false): Promise<void> {
+  async capture(binding: WindowBinding, image: string, overwrite: boolean): Promise<void> {
+    const format = path.extname(image).slice(1).toLowerCase();
+    if (!isImageFormat(format)) { throw new Error('지원하지 않는 이미지 형식입니다. PNG/JPG/WebP를 선택하세요.'); }
+    await this.withCapturedImage(binding, path.dirname(image), format, temp => publishFile(temp, image, overwrite));
+  }
+  async withCapturedImage(binding: WindowBinding, folder: string, format: ImageFormat,
+    save: (temp: string) => Promise<void>, terminal?: vscode.Terminal): Promise<void> {
+    const checkTerminal = () => {
+      if (terminal && (vscode.window.activeTerminal !== terminal || terminal.exitStatus !== undefined)) {
+        throw new Error('캡처할 REPL 터미널이 바뀌었거나 닫혔습니다. 터미널 탭을 선택한 뒤 다시 실행하세요.');
+      }
+    };
     await vscode.commands.executeCommand('notifications.hideToasts');
     await delay(this.config.captureDelayMs);
     if (!vscode.window.state.focused) { throw new Error('다른 프로그램으로 전환되어 캡처를 취소했습니다. VS Code에서 Capture Again을 실행하세요.'); }
-    const format = path.extname(image).slice(1).toLowerCase();
-    if (!isImageFormat(format)) { throw new Error('지원하지 않는 이미지 형식입니다. PNG/JPG/WebP를 선택하세요.'); }
-    const temp = path.join(path.dirname(image), `.${randomUUID()}.${format}`);
+    checkTerminal();
+    const temp = path.join(folder, `.${randomUUID()}.capture.tmp`);
     try {
       await this.python(['--hwnd', String(binding.hwnd), '--pid', String(binding.pid), '--output', temp, '--format', format,
-        ...(terminalOnly ? ['--terminal-only'] : [])]);
+        ...(terminal ? ['--terminal-only'] : [])]);
       if (!vscode.window.state.focused) { throw new Error('캡처 중 포커스가 변경되어 이미지를 저장하지 않았습니다.'); }
+      checkTerminal();
       const signature = await fs.readFile(temp);
       if (!hasImageSignature(signature, format)) { throw new Error(`올바른 ${format.toUpperCase()} 파일이 생성되지 않았습니다.`); }
-      await publishFile(temp, image, overwrite);
+      await save(temp);
     } finally { await fs.rm(temp, { force: true }); }
   }
 }
