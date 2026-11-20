@@ -70,33 +70,45 @@ def measure_terminal(window_id, pid):
         p, size = pair(attr(element, 'AXPosition'), 1), pair(attr(element, 'AXSize'), 2)
         return (p[0], p[1], p[0] + size[0], p[1] + size[1]) if p and size else None
 
-    root = attr(app, 'AXFocusedWindow')
     expected = rect(window['kCGWindowBounds'])
-    actual = bounds(root) if root is not None else None
-    if not actual or any(abs(a - b) > 3 for a, b in zip(actual, expected)):
-        raise LayoutUnavailable('대상 VS Code 창과 접근성 창의 위치가 일치하지 않습니다.')
-    focused = attr(app, 'AXFocusedUIElement')
-    focus = bounds(focused) if focused is not None else None
-    stack, nodes, visited = [root], [], {}
-    while stack:
-        element = stack.pop()
-        identity = objc.pyobjc_id(element)
-        if identity in visited:
-            continue
-        # Keep CF proxies alive while walking: a released proxy's native address
-        # can be reused for a different AX element and must not count as visited.
-        visited[identity] = element
-        if len(visited) > 12000:
-            raise LayoutUnavailable('접근성 요소가 너무 많아 터미널 영역을 확인하지 못했습니다.')
-        area = bounds(element)
-        if area and area[2] > area[0] and area[3] > area[1]:
-            classes = attr(element, 'AXDOMClassList') or []
-            if isinstance(classes, str):
-                classes = classes.split()
-            nodes.append({'classes': list(classes), 'bounds': area,
-                          'role': str(attr(element, 'AXRole') or ''),
-                          'identifier': str(attr(element, 'AXDOMIdentifier') or attr(element, 'AXIdentifier') or '')})
-        stack.extend(attr(element, 'AXChildren') or [])
+
+    def read_window():
+        root = attr(app, 'AXFocusedWindow')
+        actual = bounds(root) if root is not None else None
+        if not actual or any(abs(a - b) > 3 for a, b in zip(actual, expected)):
+            raise LayoutUnavailable('대상 VS Code 창과 접근성 창의 위치가 일치하지 않습니다.')
+        focused = attr(app, 'AXFocusedUIElement')
+        focus = bounds(focused) if focused is not None else None
+        stack, nodes, visited = [root], [], {}
+        while stack:
+            element = stack.pop()
+            identity = objc.pyobjc_id(element)
+            if identity in visited:
+                continue
+            # Keep CF proxies alive while walking so their addresses cannot be reused.
+            visited[identity] = element
+            if len(visited) > 12000:
+                raise LayoutUnavailable('접근성 요소가 너무 많아 터미널 영역을 확인하지 못했습니다.')
+            area = bounds(element)
+            if area and area[2] > area[0] and area[3] > area[1]:
+                classes = attr(element, 'AXDOMClassList') or []
+                if isinstance(classes, str):
+                    classes = classes.split()
+                nodes.append({'classes': list(classes), 'bounds': area,
+                              'role': str(attr(element, 'AXRole') or ''),
+                              'identifier': str(attr(element, 'AXDOMIdentifier') or attr(element, 'AXIdentifier') or '')})
+            stack.extend(attr(element, 'AXChildren') or [])
+        return nodes, focus
+
+    deadline = time.monotonic() + 2
+    while True:
+        nodes, focus = read_window()
+        if any('monaco-workbench' in node['classes'] for node in nodes) or time.monotonic() >= deadline:
+            break
+        # A new renderer may initially expose only the native window frame.
+        verify_window(window_id, pid)
+        ax.AXUIElementSetAttributeValue(app, 'AXManualAccessibility', True)
+        time.sleep(0.35)
     verify_window(window_id, pid)
     if os.environ.get('AUTOCAPTURE_LAYOUT_DEBUG'):
         from pathlib import Path
