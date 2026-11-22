@@ -6,7 +6,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
-from capture import save_capture
+from capture import above_status_bar, save_capture
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'runtime'))
 from macos_native import (crop_pixels, ensure_on_screen, frontmost_pid, rect,
@@ -39,10 +39,12 @@ def main():
     before = verify_window(args.hwnd, args.pid)
     bounds = rect(before['kCGWindowBounds'])
     ensure_on_screen(bounds)
-    region = None
     if args.terminal_only:
         from terminal_layout_macos import measure_terminal
         region = measure_terminal(args.hwnd, args.pid)['screen']
+    else:
+        from terminal_layout_macos import measure_status_bar
+        region = above_status_bar(bounds, measure_status_bar(args.hwnd, args.pid))
     # The temporary PNG is private and deleted even if validation/encoding fails.
     with tempfile.TemporaryDirectory(prefix='autocapture-image-') as folder:
         raw = os.path.join(folder, 'window.png')
@@ -53,13 +55,12 @@ def main():
         after = verify_window(args.hwnd, args.pid)
         if rect(after['kCGWindowBounds']) != bounds:
             raise RuntimeError('캡처 도중 창이 이동하거나 크기가 변경되었습니다.')
-        if region is not None:
-            from terminal_layout_macos import measure_terminal
+        if args.terminal_only:
             if tuple(measure_terminal(args.hwnd, args.pid)['screen']) != tuple(region):
                 raise RuntimeError('캡처 도중 터미널 영역이 변경되었습니다.')
         with Image.open(raw) as source:
             image = source.convert('RGB')
-        if region is not None:
+        if region != bounds:
             image = image.crop(crop_pixels(bounds, region, image.size))
         save_capture(image.tobytes(), image.size, args.output, args.format)
         print(json.dumps({'output': args.output, 'width': image.width, 'height': image.height}, ensure_ascii=False))

@@ -139,7 +139,7 @@ class MacTerminalTest(unittest.TestCase):
 
 
 class MacCapturePipelineTest(unittest.TestCase):
-    def capture(self, output, terminal_only=False, moved=False):
+    def capture(self, output, terminal_only=False, moved=False, status_bar=(100, 822, 1100, 850)):
         from PIL import Image
         before, after = window(), window(x=101) if moved else window()
 
@@ -156,6 +156,7 @@ class MacCapturePipelineTest(unittest.TestCase):
               patch.object(capture_macos, 'ensure_on_screen'),
               patch.object(capture_macos.subprocess, 'run', side_effect=screenshot),
               patch('terminal_layout_macos.measure_terminal', return_value={'screen': (200, 600, 1000, 800)}),
+              patch('terminal_layout_macos.measure_status_bar', return_value=status_bar),
               patch('builtins.print')):
             capture_macos.main()
 
@@ -167,7 +168,15 @@ class MacCapturePipelineTest(unittest.TestCase):
                 self.capture(output)
                 with Image.open(output) as image:
                     self.assertEqual(image.format, expected)
-                    self.assertEqual(image.size, (2000, 1600))
+                    self.assertEqual(image.size, (2000, 1544))
+
+    def test_hidden_status_bar_keeps_full_window(self):
+        from PIL import Image
+        with tempfile.TemporaryDirectory() as folder:
+            output = Path(folder) / 'window.png'
+            self.capture(output, status_bar=None)
+            with Image.open(output) as image:
+                self.assertEqual(image.size, (2000, 1600))
 
     def test_repl_pipeline_crops_to_retina_terminal_only(self):
         from PIL import Image

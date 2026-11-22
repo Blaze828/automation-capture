@@ -43,7 +43,7 @@ def choose_geometry(nodes, focus):
     return {'position': position, 'screen': screen, 'editor': editor, 'sash': sash}
 
 
-def measure_terminal(window_id, pid):
+def read_window_nodes(window_id, pid):
     import ApplicationServices as ax
     import objc
     if not ax.AXIsProcessTrusted():
@@ -88,7 +88,7 @@ def measure_terminal(window_id, pid):
             # Keep CF proxies alive while walking so their addresses cannot be reused.
             visited[identity] = element
             if len(visited) > 12000:
-                raise LayoutUnavailable('접근성 요소가 너무 많아 터미널 영역을 확인하지 못했습니다.')
+                raise LayoutUnavailable('접근성 요소가 너무 많아 VS Code 창의 영역을 확인하지 못했습니다.')
             area = bounds(element)
             if area and area[2] > area[0] and area[3] > area[1]:
                 classes = attr(element, 'AXDOMClassList') or []
@@ -110,6 +110,17 @@ def measure_terminal(window_id, pid):
         ax.AXUIElementSetAttributeValue(app, 'AXManualAccessibility', True)
         time.sleep(0.35)
     verify_window(window_id, pid)
+    return nodes, focus
+
+
+def measure_status_bar(window_id, pid):
+    nodes, _ = read_window_nodes(window_id, pid)
+    return next((node['bounds'] for node in nodes
+                 if node['identifier'] == 'workbench.parts.statusbar'), None)
+
+
+def measure_terminal(window_id, pid):
+    nodes, focus = read_window_nodes(window_id, pid)
     if os.environ.get('AUTOCAPTURE_LAYOUT_DEBUG'):
         from pathlib import Path
         Path(os.environ['AUTOCAPTURE_LAYOUT_DEBUG']).write_text(json.dumps(nodes), encoding='utf-8')

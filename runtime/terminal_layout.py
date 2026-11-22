@@ -38,12 +38,26 @@ def rectangle(element):
     return (rect.left, rect.top, rect.right, rect.bottom)
 
 
-def measure_terminal(hwnd):
+def window_automation(hwnd):
     import comtypes.client
     comtypes.client.GetModule("UIAutomationCore.dll")
     from comtypes.gen.UIAutomationClient import CUIAutomation, IUIAutomation
     automation = comtypes.client.CreateObject(CUIAutomation, interface=IUIAutomation)
-    root = automation.ElementFromHandle(hwnd)
+    return automation, automation.ElementFromHandle(hwnd)
+
+
+def measure_status_bar(hwnd):
+    automation, root = window_automation(hwnd)
+    # UIA_AutomationIdPropertyId, scoped to descendants of the bound window.
+    condition = automation.CreatePropertyCondition(30011, "workbench.parts.statusbar")
+    status_bar = root.FindFirst(4, condition)
+    if status_bar and not status_bar.CurrentIsOffscreen:
+        return rectangle(status_bar)
+    return None
+
+
+def measure_terminal(hwnd):
+    automation, root = window_automation(hwnd)
     elements = root.FindAll(4, automation.CreateTrueCondition())
     terminals, screens, sashes = [], [], []
     editor = None

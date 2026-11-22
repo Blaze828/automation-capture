@@ -41,5 +41,12 @@ class ImageFormatTest(unittest.TestCase):
                             self.assertTrue(all(abs(a - b) <= 2 for a, b in zip(image.getpixel((32, 16)), (20, 120, 220))))
 
 
+class StatusBarCropTest(unittest.TestCase):
+    def test_crop_uses_top_of_status_bar_without_changing_window_width(self):
+        window = (-1280, 10, 0, 1010)
+        self.assertEqual(capture.above_status_bar(window, (-1279, 978, -1, 1009)), (-1280, 10, 0, 978))
+        self.assertEqual(capture.above_status_bar(window, None), window)
+
+
 if __name__ == "__main__":
     unittest.main()

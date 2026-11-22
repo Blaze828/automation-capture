@@ -202,6 +202,9 @@ async function runApiTests(workspace: string, output: string): Promise<void> {
     await terminal.create(); terminal.write(Array.from({length: 100}, (_, i) => `한글 출력 ${i}`).join('\n'));
     const retained = terminal.text;
     const ranges: number[] = [];
+    const displayed: string[] = [];
+    const display = terminal.display.bind(terminal);
+    terminal.display = text => { displayed.push(text); return display(text); };
     const multi = new MultiCapture({capture: async () => {
       ranges.push(vscode.window.activeTextEditor?.visibleRanges.at(-1)?.end.line ?? -1); await delay(30);
     }}, terminal);
@@ -211,8 +214,10 @@ async function runApiTests(workspace: string, output: string): Promise<void> {
       assert.ok(images.length > 3); assert.equal(new Set(images).size, images.length);
       assert.ok(ranges.some(line => line >= longDoc.lineCount - 1));
       assert.equal(terminal.text, retained);
+      assert.ok(displayed.some(page => page.startsWith('한글 출력 0')));
+      assert.ok(displayed.every(page => !/^\[출력 \d+\/\d+\]/.test(page)));
       console.log('PASS API multi-page scrolling/output/restoration with capture backend stub (no PNG)');
-    } finally { cancel.dispose(); }
+    } finally { terminal.display = display; cancel.dispose(); }
   } finally { runner.dispose(); terminal.dispose(); }
 }
 
@@ -514,6 +519,22 @@ async function runScenarios(): Promise<void> {
     for (const image of images) { assert.ok((await fs.stat(path.join(output, '4장', image))).size > 1000); }
     console.log(`PASS real automatic capture: ${scenario.name} (${images.length} images)`);
   }
+
+  const splitSource = path.join(workspace, '4장', '분할 중단.js');
+  await fs.writeFile(splitSource, "for(let i=1;i<=500;i++) console.log('분할 중단', i)");
+  await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(splitSource));
+  const splitFolder = path.join(output, '4장');
+  const splitImages = async () => (await fs.readdir(splitFolder))
+    .filter(name => name.startsWith('분할 중단 실행결과') && name.endsWith('.png'));
+  const splitRun = vscode.commands.executeCommand<{ok?: boolean; error?: string}>('assignment.runAndCapture');
+  const splitDeadline = Date.now() + 15000;
+  while (!(await splitImages()).length && Date.now() < splitDeadline) { await delay(50); }
+  assert.deepEqual(await splitImages(), ['분할 중단 실행결과.png']);
+  await vscode.commands.executeCommand('assignment.stopRun');
+  const splitResult = await splitRun;
+  assert.notEqual(splitResult?.ok, false, splitResult?.error);
+  assert.deepEqual(await splitImages(), ['분할 중단 실행결과.png']);
+  console.log('PASS Stop Run cancels automatic split capture and keeps the completed image');
   if (process.platform === 'darwin' && process.env.GITHUB_ACTIONS === 'true') {
     const source = path.join(workspace, '4장', 'Mac 창 캡처.js');
     await fs.writeFile(source, "console.log('Mac 창 전용 캡처 확인')");

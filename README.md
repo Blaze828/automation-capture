@@ -34,7 +34,7 @@ VS Code에서 JavaScript 과제를 실행하고, 제출할 **JS 복사본과 실
 |---|---|---|---|
 | 한 파일 실행·캡처 | `Ctrl+Alt+Q` | `Control+Option+Q` | `Assignment: Run and Capture` |
 | **폴더 일괄 실행·캡처** | **`Ctrl+Alt+Shift+B`** | **`Control+Option+Shift+B`** | `Assignment: Run Folder and Capture` |
-| 현재 파일 중단 및 캡처 | `Ctrl+Alt+X` | `Control+Option+X` | `Assignment: Stop Run` |
+| 현재 파일 실행 또는 분할 캡처 중단 | `Ctrl+Alt+X` | `Control+Option+X` | `Assignment: Stop Run` |
 | 폴더 실행 전체 중단 | `Ctrl+Alt+Shift+X` | `Control+Option+Shift+X` | `Assignment: Stop Folder Run` |
 | 저장 폴더 선택 | `Ctrl+Alt+S` | `Control+Option+S` | `Assignment: Select Output Folder` |
 | 이미지 형식 변경 | `Ctrl+Alt+F` | `Control+Option+F` | `Assignment: Select Image Format` |
@@ -91,6 +91,8 @@ VS Code에서 JavaScript 과제를 실행하고, 제출할 **JS 복사본과 실
 
 - **현재 화면 추가 캡처**는 원하는 코드와 결과를 화면에 표시한 뒤 `W` 단축키로 한 장 더 저장합니다. 이 명령은 화면에 이미 표시된 내용을 사용합니다.
 - **직접 분할 캡처**는 `A` 단축키를 누른 뒤 **코드와 실행 결과·코드만·실행 결과만** 중 선택합니다. 결과를 포함하려면 같은 JS 파일을 먼저 실행하세요.
+- 창 캡처 이미지는 하단 상태 표시줄 바로 위까지 저장됩니다. 출력 페이지에는 터미널 내용만 표시됩니다.
+- 자동·직접 분할 캡처 중 `Ctrl+Alt+X`(Mac `Control+Option+X`)를 누르면 이미 저장된 이미지를 유지하고 나머지 촬영을 멈춥니다.
 - **REPL 출력 캡처**는 `node`가 실행 중인 터미널 탭을 선택하고 `D` 단축키를 누릅니다. 편집기가 비어 있어도 터미널 화면을 찍고 파일 이름 입력창을 엽니다. 이름을 입력하고 Enter를 누르면 이미지가 저장되고, Esc를 누르면 취소됩니다.
 
 ## 문제 해결

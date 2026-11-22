@@ -14,6 +14,16 @@ def is_cursor_overlay(class_name, extended_style):
     return class_name == "CodexComputerUseCursorOverlay" and extended_style & required == required
 
 
+def above_status_bar(window, status_bar):
+    if status_bar is None:
+        return window
+    left, top, right, bottom = window
+    bar_left, bar_top, bar_right, bar_bottom = status_bar
+    if left <= bar_left < bar_right <= right and top < bar_top < bar_bottom <= bottom:
+        return left, top, right, bar_top
+    raise RuntimeError("VS Code 상태 표시줄의 캡처 경계를 확인하지 못했습니다.")
+
+
 def save_capture(rgb, size, output, image_format):
     from PIL import Image
     image = Image.frombytes("RGB", size, rgb)
@@ -157,14 +167,16 @@ def main():
             raise RuntimeError("VS Code 창 위에 다른 창 또는 대화상자가 겹쳐 있습니다. 닫은 뒤 다시 캡처하세요.")
 
     ensure_unobscured()
-    capture_bounds = (left, top, right, bottom)
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), "runtime"))
     if args.terminal_only:
-        sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), "runtime"))
         from terminal_layout import measure_terminal
         capture_bounds = measure_terminal(hwnd)["screen"]
         a, b, c, d = capture_bounds
         if a < left or b < top or c > right or d > bottom or c <= a or d <= b:
             raise RuntimeError("터미널 캡처 영역을 확인하지 못했습니다.")
+    else:
+        from terminal_layout import measure_status_bar
+        capture_bounds = above_status_bar((left, top, right, bottom), measure_status_bar(hwnd))
     with mss.mss() as screen:
         virtual = screen.monitors[0]
         if left < virtual["left"] or top < virtual["top"] or right > virtual["left"] + virtual["width"] or bottom > virtual["top"] + virtual["height"]:
